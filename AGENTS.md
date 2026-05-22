@@ -1,0 +1,2 @@
+- We are on NixOS, you can use the already installed tools or you can use `nix-shell` to install things temporarily.
+- When creating git commits, append `Assisted-by: OpenCode:deepseek-v4-pro` to every commit message.
