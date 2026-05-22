@@ -195,6 +195,8 @@ Uint8List encodeCapBleRequest(int requestId, CapBleRequestType type,
             default: ar.skipField(af.wireType);
           }
         }
+        // If no value bytes were present but body is expected, use empty data
+        bodyData ??= Uint8List(0);
         break;
       default: r.skipField(f.wireType);
     }
@@ -428,6 +430,46 @@ List<CapFaultLog> decodeResponseGetCapFaultLog(Uint8List data) {
     } else { r.skipField(f.wireType); }
   }
   return items;
+}
+
+// CapAdcLog: uint64 timestamp=1; float batteryVoltage=2; fixed32 batterySocInPercentage=3;
+List<CapAdcLog> _decodeCapAdcLogList(Uint8List data) {
+  final r = _PbReader(data);
+  final items = <CapAdcLog>[];
+  while (!r.isDone) {
+    final f = r.readField();
+    if (f.wireType < 0) break;
+    if (f.fieldNumber == 1) {
+      final inner = _PbReader(r.readMessage());
+      int ts = 0;
+      double v = 0;
+      int soc = 0;
+      while (!inner.isDone) {
+        final fi = inner.readField();
+        if (fi.wireType < 0) break;
+        switch (fi.fieldNumber) {
+          case 1: ts = inner.readUint64(); break;
+          case 2: v = inner.readFloat(); break;
+          case 3: soc = inner.readFixed32(); break;
+          default: inner.skipField(fi.wireType);
+        }
+      }
+      items.add(CapAdcLog(
+        timestamp: ts,
+        batteryVoltage: v,
+        batterySocInPercentage: soc,
+      ));
+    } else { r.skipField(f.wireType); }
+  }
+  return items;
+}
+
+List<CapAdcLog> decodeResponseGetActivationCapAdcLog(Uint8List data) {
+  return _decodeCapAdcLogList(data);
+}
+
+List<CapAdcLog> decodeResponseGetChargingCapAdcLog(Uint8List data) {
+  return _decodeCapAdcLogList(data);
 }
 
 // CapAmbientLightSensorState: float value=1;

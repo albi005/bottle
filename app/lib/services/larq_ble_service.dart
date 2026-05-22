@@ -12,6 +12,7 @@ class LarqBleService {
   BluetoothDevice? _device;
   BluetoothCharacteristic? _txCharacteristic;
   BluetoothCharacteristic? _rxCharacteristic;
+  BluetoothCharacteristic? _batteryCharacteristic;
   StreamSubscription? _notificationSubscription;
 
   int _requestIdCounter = 0;
@@ -69,6 +70,12 @@ class LarqBleService {
 
   List<CapFaultLog> _faultLogs = [];
   List<CapFaultLog> get faultLogs => List.unmodifiable(_faultLogs);
+
+  List<CapAdcLog> _activationAdcLogs = [];
+  List<CapAdcLog> get activationAdcLogs => List.unmodifiable(_activationAdcLogs);
+
+  List<CapAdcLog> _chargingAdcLogs = [];
+  List<CapAdcLog> get chargingAdcLogs => List.unmodifiable(_chargingAdcLogs);
 
   Stream<LarqResponse> get responseStream => _responseController.stream;
 
@@ -175,17 +182,23 @@ class LarqBleService {
           }
         }
       } else if (_uuidMatch(service.serviceUuid, LarqBleUuids.serviceBattery)) {
-        print('[LARQ]   Battery service characteristics: ${service.characteristics.length}');
         for (final char in service.characteristics) {
-          print('[LARQ]   Battery char: ${char.characteristicUuid}');
+          if (_uuidMatch(char.characteristicUuid, LarqBleUuids.charBatteryLevel)) {
+            _batteryCharacteristic = char;
+            print('[LARQ]   Battery char: ${char.characteristicUuid}');
+          }
         }
       }
     }
   }
 
   bool _uuidMatch(Guid a, String b) {
-    return a.toString().toLowerCase().replaceAll('-', '') ==
-        b.toLowerCase().replaceAll('-', '');
+    var aStr = a.toString().toLowerCase().replaceAll('-', '');
+    // Expand short UUIDs (16/32-bit) to 128-bit for comparison
+    if (aStr.length <= 8) {
+      aStr = '0000$aStr-0000-1000-8000-00805f9b34fb'.replaceAll('-', '');
+    }
+    return aStr == b.toLowerCase().replaceAll('-', '');
   }
 
   Future<void> _readDeviceInfo() async {
@@ -215,6 +228,13 @@ class LarqBleService {
       hardwareRevision: await readChar(LarqBleUuids.serviceDeviceInfo, LarqBleUuids.charHardwareRevision),
       softwareRevision: await readChar(LarqBleUuids.serviceDeviceInfo, LarqBleUuids.charSoftwareRevision),
     );
+
+    // Try reading battery level via standard BLE Battery Service
+    final battVal = await readChar(LarqBleUuids.serviceBattery, LarqBleUuids.charBatteryLevel);
+    if (battVal.isNotEmpty) {
+      _batteryLevel = battVal.codeUnits.first;
+      print('[LARQ] Battery from BLE GATT: $_batteryLevel%');
+    }
   }
 
 
@@ -304,6 +324,18 @@ class LarqBleService {
           print('[LARQ] Battery from activation log: $_batteryLevel%');
         }
         _responseController.add(LarqResponse.activationLog(_activationLogs));
+      } else if (short == 'ResponseGetActivationCapAdcLog') {
+        _activationAdcLogs = decodeResponseGetActivationCapAdcLog(body);
+        if (_activationAdcLogs.isNotEmpty) {
+          _batteryLevel = _activationAdcLogs.last.batterySocInPercentage;
+          print('[LARQ] Battery from activation ADC log: $_batteryLevel%');
+        }
+      } else if (short == 'ResponseGetChargingCapAdcLog') {
+        _chargingAdcLogs = decodeResponseGetChargingCapAdcLog(body);
+        if (_chargingAdcLogs.isNotEmpty) {
+          _batteryLevel = _chargingAdcLogs.last.batterySocInPercentage;
+          print('[LARQ] Battery from charging ADC log: $_batteryLevel%');
+        }
       } else if (short == 'ResponseGetCapFaultLog') {
         _faultLogs = decodeResponseGetCapFaultLog(body);
         _responseController.add(LarqResponse.faultLog(_faultLogs));
@@ -367,6 +399,23 @@ class LarqBleService {
   Future<void> factoryReset() async => _sendRequest(CapBleRequestType.factoryReset);
   Future<void> enterDfuMode() async => _sendRequest(CapBleRequestType.enterDfuMode);
 
+  Future<void> readBleBatteryLevel() async {
+    if (_device == null) return;
+    try {
+      if (_batteryCharacteristic == null) {
+        await _discoverServices();
+      }
+      if (_batteryCharacteristic == null) return;
+      final value = await _batteryCharacteristic!.read();
+      if (value.isNotEmpty) {
+        _batteryLevel = value[0];
+        print('[LARQ] Battery GATT: $_batteryLevel%');
+      }
+    } catch (e) {
+      print('[LARQ] Battery read failed: $e');
+    }
+  }
+
   Future<void> fetchAllData() async {
     await getTofLog();
     await getTofState();
@@ -378,6 +427,9 @@ class LarqBleService {
     await getHallEffectSensorState();
     await getActivationLog();
     await getFaultLog();
+    await getActivationAdcLog();
+    await getChargingAdcLog();
+    await readBleBatteryLevel();
   }
 
 
@@ -390,6 +442,11 @@ class LarqBleService {
     _hallEffectState = null;
     _uiState = CapEnumUiState.allOff;
     _powerSavingMode = CapPowerSavingMode.off;
+    _activationLogs = [];
+    _faultLogs = [];
+    _activationAdcLogs = [];
+    _chargingAdcLogs = [];
+    _batteryCharacteristic = null;
   }
 
   void dispose() {

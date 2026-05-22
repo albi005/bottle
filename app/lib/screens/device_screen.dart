@@ -101,6 +101,14 @@ class _DeviceScreenState extends State<DeviceScreen> {
           'Activation Log', () => widget.bleService.getActivationLog());
       if (seq != _pollSeq || !_mounted) return;
       await _fetchItem('Fault Log', () => widget.bleService.getFaultLog());
+      if (seq != _pollSeq || !_mounted) return;
+      await _fetchItem('Act ADC Log',
+          () => widget.bleService.getActivationAdcLog());
+      if (seq != _pollSeq || !_mounted) return;
+      await _fetchItem('Chg ADC Log',
+          () => widget.bleService.getChargingAdcLog());
+      if (seq != _pollSeq || !_mounted) return;
+      await _fetchItem('Battery', () => widget.bleService.readBleBatteryLevel());
     } catch (_) {}
 
     _lastPollDuration = DateTime.now().difference(_pollStartedAt);
