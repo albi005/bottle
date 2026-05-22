@@ -29,8 +29,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String _connError = '';
 
   StreamSubscription? _responseSub;
-  StreamSubscription? _pollItemSub;
-  String? _pollingItem;
 
   static const _scanDuration = Duration(seconds: 25);
   static const _scanRestartDelay = Duration(seconds: 3);
@@ -40,9 +38,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     _responseSub = widget.bleService.responseStream.listen((_) {
       if (_mounted && mounted) setState(() {});
-    });
-    _pollItemSub = widget.bleService.pollingItemStream.listen((item) {
-      if (_mounted && mounted) setState(() => _pollingItem = item);
     });
 
     widget.bleService.connectionStream.listen((connected) {
@@ -65,11 +60,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       print('[HOME] app detached, starting disconnect...');
       // Fire-and-forget: the process may exit before this completes,
       // but we must try so the bottle gets a clean BLE disconnection.
-      widget.bleService.disconnect(intentional: true).then((_) {
-        print('[HOME] disconnect completed before exit');
-      }).catchError((e) {
-        print('[HOME] disconnect error: $e');
-      });
+      widget.bleService
+          .disconnect(intentional: true)
+          .then((_) {
+            print('[HOME] disconnect completed before exit');
+          })
+          .catchError((e) {
+            print('[HOME] disconnect error: $e');
+          });
     }
   }
 
@@ -80,7 +78,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _stopScan();
     _scanRefreshTimer?.cancel();
     _responseSub?.cancel();
-    _pollItemSub?.cancel();
     // Attempt clean BLE disconnect on dispose, even though the process
     // may be killed before it completes. The WidgetsBindingObserver.detached
     // callback is more reliable, but on Linux it may not fire.
@@ -110,39 +107,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _scanResultsSub = widget.bleService
         .scanForDevices(timeout: _scanDuration)
         .listen((results) {
-      if (!_mounted || !_scanning) return;
+          if (!_mounted || !_scanning) return;
 
-      _scanDevicesSeen = results.length;
+          _scanDevicesSeen = results.length;
 
-      final bottle = results.cast<ScanResult?>().firstWhere(
-        (r) => _isBottle(r!),
-        orElse: () => null,
-      );
+          final bottle = results.cast<ScanResult?>().firstWhere(
+            (r) => _isBottle(r!),
+            orElse: () => null,
+          );
 
-      if (bottle != null &&
-          _bottleResult?.device.remoteId != bottle.device.remoteId) {
-        _bottleResult = bottle;
-        print('[HOME] bottle seen: ${_bottleResult!.device.remoteId} rssi=${_bottleResult!.rssi}');
-        if (mounted) setState(() {});
+          if (bottle != null &&
+              _bottleResult?.device.remoteId != bottle.device.remoteId) {
+            _bottleResult = bottle;
+            print(
+              '[HOME] bottle seen: ${_bottleResult!.device.remoteId} rssi=${_bottleResult!.rssi}',
+            );
+            if (mounted) setState(() {});
 
-        // Skip RSSI 0 (BlueZ cached/ghost entries) — wait for a real signal
-        if (bottle.rssi == 0) {
-          print('[HOME]   rssi=0, ignoring (ghost entry)');
-        } else if (!_connecting && !widget.bleService.isConnected) {
-          _connectToBottle(bottle);
-        }
-      } else if (bottle != null) {
-        _bottleResult = bottle;
-        if (mounted) setState(() {});
-      }
-    });
+            // Skip RSSI 0 (BlueZ cached/ghost entries) — wait for a real signal
+            if (bottle.rssi == 0) {
+              print('[HOME]   rssi=0, ignoring (ghost entry)');
+            } else if (!_connecting && !widget.bleService.isConnected) {
+              _connectToBottle(bottle);
+            }
+          } else if (bottle != null) {
+            _bottleResult = bottle;
+            if (mounted) setState(() {});
+          }
+        });
 
     _scanTimeoutTimer = Timer(_scanDuration + const Duration(seconds: 1), () {
       if (!_mounted || !_scanning) return;
       _scanning = false;
       _scanResultsSub?.cancel();
       _scanRefreshTimer?.cancel();
-      print('[HOME] scan timeout, restarting in ${_scanRestartDelay.inSeconds}s');
+      print(
+        '[HOME] scan timeout, restarting in ${_scanRestartDelay.inSeconds}s',
+      );
       if (mounted) setState(() {});
 
       _scanRestartTimer = Timer(_scanRestartDelay, () {
@@ -162,7 +163,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _scanRefreshTimer?.cancel();
     _scanTimeoutTimer?.cancel();
     _scanRestartTimer?.cancel();
-    try { FlutterBluePlus.stopScan(); } catch (_) {}
+    try {
+      FlutterBluePlus.stopScan();
+    } catch (_) {}
   }
 
   bool _isBottle(ScanResult result) {
@@ -185,7 +188,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     print('[HOME] calling connectWithResult...');
     final result = await widget.bleService.connectWithResult(bottle.device);
-    print('[HOME] connectWithResult success=${result.success} error=${result.error}');
+    print(
+      '[HOME] connectWithResult success=${result.success} error=${result.error}',
+    );
 
     if (!_mounted) return;
     _connecting = false;
@@ -222,7 +227,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (r == null) return '';
     return r.device.advName.isNotEmpty
         ? r.device.advName
-        : (r.device.platformName.isNotEmpty ? r.device.platformName : 'LARQ Bottle');
+        : (r.device.platformName.isNotEmpty
+              ? r.device.platformName
+              : 'LARQ Bottle');
   }
 
   String _uiStateLabel(CapEnumUiState state) {
@@ -281,8 +288,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _BottleCard(
               name: _isConnected
                   ? (ble.deviceInfo.modelNumber.isNotEmpty
-                      ? ble.deviceInfo.modelNumber
-                      : 'LARQ Bottle')
+                        ? ble.deviceInfo.modelNumber
+                        : 'LARQ Bottle')
                   : _bottleName,
               mac: _bottleResult?.device.remoteId.toString() ?? '',
               rssi: _bottleResult?.rssi,
@@ -294,7 +301,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               uiStateLabel: _uiStateLabel(ble.uiState),
               uiStateColor: _uiStateColor(ble.uiState),
               firmware: ble.deviceInfo.firmwareRevision,
-              pollingItem: _pollingItem,
               onTap: _isConnected ? _openDevice : null,
             ),
           if (!showBottle && !_scanning)
@@ -302,11 +308,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               padding: const EdgeInsets.all(32),
               child: Column(
                 children: [
-                  const Icon(Icons.bluetooth_searching, size: 64, color: Colors.grey),
+                  const Icon(
+                    Icons.bluetooth_searching,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                   const SizedBox(height: 16),
-                  Text('Ready to scan',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey),
-                    textAlign: TextAlign.center),
+                  Text(
+                    'Ready to scan',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge?.copyWith(color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
                     onPressed: _startScanning,
@@ -341,7 +355,8 @@ class _ScanStatusBar extends StatelessWidget {
         children: [
           if (scanning)
             const SizedBox(
-              width: 16, height: 16,
+              width: 16,
+              height: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
@@ -373,7 +388,6 @@ class _BottleCard extends StatelessWidget {
   final String uiStateLabel;
   final Color uiStateColor;
   final String firmware;
-  final String? pollingItem;
   final VoidCallback? onTap;
 
   const _BottleCard({
@@ -388,7 +402,6 @@ class _BottleCard extends StatelessWidget {
     required this.uiStateLabel,
     required this.uiStateColor,
     required this.firmware,
-    this.pollingItem,
     this.onTap,
   });
 
@@ -416,24 +429,34 @@ class _BottleCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(name, style: Theme.of(context).textTheme.titleMedium),
-                        Text(mac, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                        Text(
+                          name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Text(
+                          mac,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                        ),
                       ],
                     ),
                   ),
                   if (connecting)
-                    const SizedBox(width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   else if (connected)
                     Row(
                       children: [
-                        if (pollingItem == 'Battery')
-                          const SizedBox(width: 14, height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 1.5))
-                        else if (battery >= 0)
-                          Text('$battery%',
+                        if (battery >= 0)
+                          Text(
+                            '$battery%',
                             style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold)),
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
                         if (battery >= 0) const SizedBox(width: 8),
                         const Icon(Icons.chevron_right, color: Colors.grey),
                       ],
@@ -441,42 +464,67 @@ class _BottleCard extends StatelessWidget {
                   else
                     Text(
                       rssi != null ? '${rssi} dBm' : '',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                     ),
                 ],
               ),
               if (connecting) ...[
                 const SizedBox(height: 8),
-                Text('Connecting...',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.teal)),
+                Text(
+                  'Connecting...',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.teal),
+                ),
               ],
               if (connError.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(connError,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red)),
+                Text(
+                  connError,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.red),
+                ),
               ],
               if (connected) ...[
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Container(
-                      width: 10, height: 10,
-                      decoration: BoxDecoration(color: uiStateColor, shape: BoxShape.circle),
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: uiStateColor,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 6),
-                    Text(uiStateLabel, style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      uiStateLabel,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     if (firmware.isNotEmpty) ...[
                       const SizedBox(width: 12),
-                      Text('FW $firmware',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                      Text(
+                        'FW $firmware',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                      ),
                     ],
                   ],
                 ),
               ],
               if (!connected && !connecting && connError.isEmpty) ...[
                 const SizedBox(height: 8),
-                Text('Waiting for connection...',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                Text(
+                  'Waiting for connection...',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                ),
               ],
             ],
           ),

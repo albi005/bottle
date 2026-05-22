@@ -273,20 +273,25 @@ class LarqBleService {
 
     for (final service in services) {
       print('[LARQ] Discovered service: ${service.serviceUuid}');
-      if (_uuidMatch(service.serviceUuid, LarqBleUuids.serviceUart)) {
-        for (final char in service.characteristics) {
-          print('[LARQ]   UART char: ${char.characteristicUuid}');
+      for (final char in service.characteristics) {
+        final props = <String>[];
+        if (char.properties.broadcast) props.add('BC');
+        if (char.properties.read) props.add('RD');
+        if (char.properties.writeWithoutResponse) props.add('WW');
+        if (char.properties.write) props.add('WR');
+        if (char.properties.notify) props.add('NF');
+        if (char.properties.indicate) props.add('IN');
+        print('[LARQ]   char: ${char.characteristicUuid} props=$props');
+
+        if (_uuidMatch(service.serviceUuid, LarqBleUuids.serviceUart)) {
           if (_uuidMatch(char.characteristicUuid, LarqBleUuids.charTx)) {
             _txCharacteristic = char;
           } else if (_uuidMatch(char.characteristicUuid, LarqBleUuids.charRx)) {
             _rxCharacteristic = char;
           }
-        }
-      } else if (_uuidMatch(service.serviceUuid, LarqBleUuids.serviceBattery)) {
-        for (final char in service.characteristics) {
+        } else if (_uuidMatch(service.serviceUuid, LarqBleUuids.serviceBattery)) {
           if (_uuidMatch(char.characteristicUuid, LarqBleUuids.charBatteryLevel)) {
             _batteryCharacteristic = char;
-            print('[LARQ]   Battery char: ${char.characteristicUuid}');
           }
         }
       }
@@ -417,9 +422,19 @@ class LarqBleService {
   }
 
   void _handleNotification(List<int> data) {
-    print('[LARQ] RX ${data.length} bytes: ${data.sublist(0, data.length.clamp(0, 32)).map((b) => '${b.toRadixString(16).padLeft(2, '0')}').join('')}...');
-    final decoded = decodeCapBleResponse(Uint8List.fromList(data));
-    print('[LARQ] id=${decoded.requestId} code=${decoded.code.name} type_url=${decoded.typeUrl}');
+    // Print first 64 bytes hex
+    final preview = data.sublist(0, data.length.clamp(0, 64))
+        .map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    print('[LARQ] RX ${data.length}B: $preview');
+
+    // Full CapBleResponse protocol
+    final decoded = decodeCapBleResponse(Uint8List.fromList(data),
+      debugLog: (msg) => print('[LARQ]   $msg'),
+    );
+    print('[LARQ] id=${decoded.requestId} code=${decoded.code.name} type_url=${decoded.typeUrl} bodyLen=${decoded.bodyData?.length}');
+    if (decoded.bodyData != null && decoded.bodyData!.isNotEmpty) {
+      print('[LARQ]   body hex: ${decoded.bodyData!.sublist(0, decoded.bodyData!.length.clamp(0, 64)).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+    }
     _pendingRequests[decoded.requestId]?.complete(Uint8List.fromList(data));
 
     if (decoded.bodyData != null && decoded.typeUrl != null) {
@@ -432,7 +447,15 @@ class LarqBleService {
       // Remove any package prefix for matching
       final short = typeUrl.replaceFirst(RegExp(r'^.*/'), '');
       if (short == 'ResponseGetCapTofLog') {
+        print('[LARQ] ToF log body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
         _tofLogs = decodeResponseGetCapTofLog(body);
+        print('[LARQ] ToF log entries: ${_tofLogs.length}');
+        _responseController.add(LarqResponse.tofLog(_tofLogs));
+      } else if (short == 'ResponseGetCapStateLog') {
+        print('[LARQ] StateLog body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
+        // Try parsing as ToF log (may share the same format)
+        _tofLogs = decodeResponseGetCapTofLog(body);
+        print('[LARQ] StateLog as ToF: ${_tofLogs.length} entries');
         _responseController.add(LarqResponse.tofLog(_tofLogs));
       } else if (short == 'ResponseGetCapTofState') {
         _tofState = decodeResponseGetCapTofState(body);
@@ -452,6 +475,7 @@ class LarqBleService {
         _powerSavingMode = result.powerSavingMode;
         _responseController.add(LarqResponse.uiState(result.state, result.powerSavingMode));
       } else if (short == 'ResponseGetCapActivationLog') {
+        print('[LARQ] Activation log body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
         _activationLogs = decodeResponseGetCapActivationLog(body);
         print('[LARQ] Activation log entries: ${_activationLogs.length}');
         if (_activationLogs.isNotEmpty) {
@@ -460,19 +484,23 @@ class LarqBleService {
         }
         _responseController.add(LarqResponse.activationLog(_activationLogs));
       } else if (short == 'ResponseGetActivationCapAdcLog') {
+        print('[LARQ] Act ADC body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
         _activationAdcLogs = decodeResponseGetActivationCapAdcLog(body);
+        print('[LARQ] Act ADC log entries: ${_activationAdcLogs.length}');
         if (_activationAdcLogs.isNotEmpty) {
           _batteryLevel = _activationAdcLogs.last.batterySocInPercentage;
           print('[LARQ] Battery from activation ADC log: $_batteryLevel%');
         }
       } else if (short == 'ResponseGetChargingCapAdcLog') {
         _chargingAdcLogs = decodeResponseGetChargingCapAdcLog(body);
+        print('[LARQ] Chg ADC log entries: ${_chargingAdcLogs.length}');
         if (_chargingAdcLogs.isNotEmpty) {
           _batteryLevel = _chargingAdcLogs.last.batterySocInPercentage;
           print('[LARQ] Battery from charging ADC log: $_batteryLevel%');
         }
       } else if (short == 'ResponseGetCapFaultLog') {
         _faultLogs = decodeResponseGetCapFaultLog(body);
+        print('[LARQ] Fault log entries: ${_faultLogs.length}');
         _responseController.add(LarqResponse.faultLog(_faultLogs));
       } else if (short == 'ResponseGetCapAmbientLightSensorState') {
         _ambientLightState = decodeResponseGetCapAmbientLightSensorState(body);
@@ -481,16 +509,24 @@ class LarqBleService {
         _hallEffectState = decodeResponseGetCapHallEffectSensorState(body);
         _responseController.add(LarqResponse.hallEffectState(_hallEffectState!));
       }
-    } catch (e) {
+    } catch (e, st) {
+      print('[LARQ] Parse error type_url=$typeUrl: $e');
+      print('[LARQ] Stack: $st');
       _responseController.add(LarqResponse.error('Failed to parse response: $e'));
     }
   }
 
   // --- Public API methods ---
 
+  Future<void> getCapStateLog() async {
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final req = encodeRequestGetCapStateLog(q);
+    await _sendRequest(CapBleRequestType.getCapStateLog, req);
+  }
   Future<void> getTofLog() async {
     final query = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
-    await _sendRequest(CapBleRequestType.getCapTofLog, query);
+    final req = encodeRequestGetCapTofLog(query);
+    await _sendRequest(CapBleRequestType.getCapTofLog, req);
   }
   Future<void> getTofState() async => _sendRequest(CapBleRequestType.getCapTofState);
   Future<void> getBottleSensorState() async => _sendRequest(CapBleRequestType.getCapBottleSensorState);
@@ -500,20 +536,24 @@ class LarqBleService {
   Future<void> getAmbientLightSensorState() async => _sendRequest(CapBleRequestType.getCapAmbientLightSensorState);
   Future<void> getHallEffectSensorState() async => _sendRequest(CapBleRequestType.getCapHallEffectSensorState);
   Future<void> getActivationLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 10);
-    await _sendRequest(CapBleRequestType.getCapActivationLog, q);
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final req = encodeRequestGetCapActivationLog(q);
+    await _sendRequest(CapBleRequestType.getCapActivationLog, req);
   }
   Future<void> getFaultLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 10);
-    await _sendRequest(CapBleRequestType.getCapFaultLog, q);
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final req = encodeRequestGetCapFaultLog(q);
+    await _sendRequest(CapBleRequestType.getCapFaultLog, req);
   }
   Future<void> getChargingAdcLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 10);
-    await _sendRequest(CapBleRequestType.getChargingCapAdcLog, q);
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final req = encodeRequestGetChargingCapAdcLog(q);
+    await _sendRequest(CapBleRequestType.getChargingCapAdcLog, req);
   }
   Future<void> getActivationAdcLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 10);
-    await _sendRequest(CapBleRequestType.getActivationCapAdcLog, q);
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final req = encodeRequestGetActivationCapAdcLog(q);
+    await _sendRequest(CapBleRequestType.getActivationCapAdcLog, req);
   }
 
   Future<void> startPurification() async {

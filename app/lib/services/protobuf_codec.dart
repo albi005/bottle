@@ -84,6 +84,7 @@ class _PbReader {
   int _pos = 0;
   _PbReader(this._data);
   bool get isDone => _pos >= _data.length;
+  int get remaining => _data.length - _pos;
 
   int _readByte() => _data[_pos++];
   int _peekByte() => _data[_pos];
@@ -107,6 +108,10 @@ class _PbReader {
   }
 
   int readFixed32() {
+    if (_pos + 4 > _data.length) {
+      _pos = _data.length;
+      return 0;
+    }
     final bytes = _data.sublist(_pos, _pos + 4);
     _pos += 4;
     return ByteData.sublistView(bytes).getUint32(0, Endian.little);
@@ -116,21 +121,25 @@ class _PbReader {
   int readUint64() => _readVarint();
   bool readBool() => _readVarint() != 0;
   double readFloat() {
+    if (_pos + 4 > _data.length) {
+      _pos = _data.length;
+      return 0.0;
+    }
     final bytes = _data.sublist(_pos, _pos + 4);
     _pos += 4;
     return ByteData.sublistView(bytes).getFloat32(0, Endian.little);
   }
 
   int readSint32() {
-    // Zigzag decode: (n >>> 1) ^ -(n & 1)
     final n = _readVarint();
     return (n >>> 1) ^ -(n & 1);
   }
 
   Uint8List readBytes() {
     final len = _readVarint();
-    final result = _data.sublist(_pos, _pos + len);
-    _pos += len;
+    final actualLen = (len > _data.length - _pos) ? (_data.length - _pos) : len;
+    final result = _data.sublist(_pos, _pos + actualLen);
+    _pos += actualLen;
     return result;
   }
 
@@ -170,16 +179,19 @@ Uint8List encodeCapBleRequest(int requestId, CapBleRequestType type,
 // CapBleResponse: fixed32 requestId=1; CapEnumResponseCode code=2; Any body=3;
 
 ({int requestId, CapEnumResponseCode code, String? typeUrl,
-    Uint8List? bodyData}) decodeCapBleResponse(Uint8List data) {
+    Uint8List? bodyData}) decodeCapBleResponse(Uint8List data,
+    {void Function(String)? debugLog}) {
   final r = _PbReader(data);
   int requestId = 0;
   CapEnumResponseCode code = CapEnumResponseCode.fail;
   String? typeUrl;
   Uint8List? bodyData;
+  final fieldsSeen = <String>[];
 
   while (!r.isDone) {
     final f = r.readField();
     if (f.wireType < 0) break;
+    fieldsSeen.add('f${f.fieldNumber}:w${f.wireType}');
     switch (f.fieldNumber) {
       case 1: requestId = r.readFixed32(); break;
       case 2: code = CapEnumResponseCode.fromValue(r.readInt32()); break;
@@ -189,19 +201,20 @@ Uint8List encodeCapBleRequest(int requestId, CapBleRequestType type,
         while (!ar.isDone) {
           final af = ar.readField();
           if (af.wireType < 0) break;
+          fieldsSeen.add('  any.f${af.fieldNumber}:w${af.wireType}');
           switch (af.fieldNumber) {
             case 1: typeUrl = ar.readString(); break;
             case 2: bodyData = ar.readBytes(); break;
             default: ar.skipField(af.wireType);
           }
         }
-        // If no value bytes were present but body is expected, use empty data
         bodyData ??= Uint8List(0);
         break;
       default: r.skipField(f.wireType);
     }
   }
 
+  debugLog?.call('fields: ${fieldsSeen.join(", ")}');
   return (requestId: requestId, code: code, typeUrl: typeUrl, bodyData: bodyData);
 }
 
@@ -532,9 +545,52 @@ Uint8List encodeRequestSetCapPowerSavingMode(CapPowerSavingMode mode) {
 }
 
 // CapLogQuery: uint64 fromTimestamp=1; fixed32 limit=2; enum algo=3;
-Uint8List encodeCapLogQuery({int fromTimestamp = 0, int limit = 50}) {
+Uint8List encodeCapLogQuery({int fromTimestamp = 0, int limit = 50, int algo = 0}) {
   final w = _PbWriter();
+  w.writeUint64(1, fromTimestamp);
   w.writeFixed32(2, limit);
-  // algo: SEARCH_ALGO_TIMESTAMP=0 (default, not written)
+  w.writeVarint32(3, algo);
+  return w.toBytes();
+}
+
+// Wrap CapLogQuery in a RequestGetCapTofLog (field 1 = query)
+Uint8List encodeRequestGetCapTofLog(Uint8List query) {
+  final w = _PbWriter();
+  w.writeBytes(1, query);
+  return w.toBytes();
+}
+
+// Wrap CapLogQuery in a RequestGetCapActivationLog (field 1 = query)
+Uint8List encodeRequestGetCapActivationLog(Uint8List query) {
+  final w = _PbWriter();
+  w.writeBytes(1, query);
+  return w.toBytes();
+}
+
+// Wrap CapLogQuery in a RequestGetCapFaultLog (field 1 = query)
+Uint8List encodeRequestGetCapFaultLog(Uint8List query) {
+  final w = _PbWriter();
+  w.writeBytes(1, query);
+  return w.toBytes();
+}
+
+// Wrap CapLogQuery in a RequestGetActivationCapAdcLog (field 1 = query)
+Uint8List encodeRequestGetActivationCapAdcLog(Uint8List query) {
+  final w = _PbWriter();
+  w.writeBytes(1, query);
+  return w.toBytes();
+}
+
+// Wrap CapLogQuery in a RequestGetChargingCapAdcLog (field 1 = query)
+Uint8List encodeRequestGetChargingCapAdcLog(Uint8List query) {
+  final w = _PbWriter();
+  w.writeBytes(1, query);
+  return w.toBytes();
+}
+
+// Wrap CapLogQuery in a RequestGetCapStateLog (field 1 = query)
+Uint8List encodeRequestGetCapStateLog(Uint8List query) {
+  final w = _PbWriter();
+  w.writeBytes(1, query);
   return w.toBytes();
 }
