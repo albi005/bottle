@@ -3,6 +3,8 @@
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../models/larq_protocol.dart';
@@ -79,6 +81,93 @@ class LarqBleService {
 
   Stream<LarqResponse> get responseStream => _responseController.stream;
 
+  // Background poll loop
+  bool _polling = false;
+  Duration _lastPollDuration = Duration.zero;
+  Timer? _pollTimer;
+  int _pollSeq = 0;
+
+  final _pollItemController = StreamController<String?>.broadcast();
+  Stream<String?> get pollingItemStream => _pollItemController.stream;
+  Duration get lastPollDuration => _lastPollDuration;
+
+  void _startPoll() {
+    if (_polling || !_connected) return;
+    _pollSeq++;
+    _scheduleNextPoll();
+  }
+
+  void _stopPoll() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _polling = false;
+    _pollSeq++; // cancel any in-progress poll cycle
+    _pollItemController.add(null);
+    for (final c in _pendingRequests.values) {
+      c.completeError('Disconnected');
+    }
+    _pendingRequests.clear();
+    print('[SVC] _stopPoll seq=$_pollSeq pending=${_pendingRequests.length}');
+  }
+
+  Future<void> _runPoll() async {
+    if (_polling || !_connected) return;
+    _polling = true;
+    _pollSeq++;
+    final seq = _pollSeq;
+    final start = DateTime.now();
+
+    try {
+      await _pollItem('ToF Log', getTofLog);
+      if (seq != _pollSeq) return;
+      await _pollItem('ToF State', getTofState);
+      if (seq != _pollSeq) return;
+      await _pollItem('Bottle Sensor', getBottleSensorState);
+      if (seq != _pollSeq) return;
+      await _pollItem('UI State', getUiState);
+      if (seq != _pollSeq) return;
+      await _pollItem('SIP Sensor', getSipSensorState);
+      if (seq != _pollSeq) return;
+      await _pollItem('Accelerometer', getAccelerometerState);
+      if (seq != _pollSeq) return;
+      await _pollItem('Ambient Light', getAmbientLightSensorState);
+      if (seq != _pollSeq) return;
+      await _pollItem('Hall Effect', getHallEffectSensorState);
+      if (seq != _pollSeq) return;
+      await _pollItem('Activation Log', getActivationLog);
+      if (seq != _pollSeq) return;
+      await _pollItem('Fault Log', getFaultLog);
+      if (seq != _pollSeq) return;
+      await _pollItem('Act ADC Log', getActivationAdcLog);
+      if (seq != _pollSeq) return;
+      await _pollItem('Chg ADC Log', getChargingAdcLog);
+      if (seq != _pollSeq) return;
+      await _pollItem('Battery', readBleBatteryLevel);
+    } catch (_) {}
+
+    _lastPollDuration = DateTime.now().difference(start);
+    _polling = false;
+    _pollItemController.add(null);
+
+    _scheduleNextPoll();
+  }
+
+  Future<void> _pollItem(String label, Future<void> Function() fetch) async {
+    _pollItemController.add(label);
+    await fetch();
+  }
+
+  void _scheduleNextPoll() {
+    if (!_connected) return;
+    _pollTimer?.cancel();
+    final delay = _lastPollDuration * 2;
+    if (delay < const Duration(seconds: 1)) {
+      _pollTimer = Timer(const Duration(seconds: 1), _runPoll);
+    } else {
+      _pollTimer = Timer(delay, _runPoll);
+    }
+  }
+
   /// Scan for LARQ bottle devices. Shows all BLE devices on Linux
   /// since BlueZ doesn't always support service UUID filter in scan.
   Stream<List<ScanResult>> scanForDevices({Duration timeout = const Duration(seconds: 15)}) {
@@ -88,19 +177,19 @@ class LarqBleService {
     final scanController = StreamController<List<ScanResult>>.broadcast();
 
     FlutterBluePlus.startScan(timeout: timeout);
+    print('[SVC] scanForDevices started (timeout=${timeout.inSeconds}s)');
 
-    FlutterBluePlus.scanResults.listen((r) {
+    final sub = FlutterBluePlus.scanResults.listen((r) {
+      print('[SVC] scanResults got ${r.length} devices');
       for (final result in r) {
-        if (result.rssi == 0) continue;
         final remoteId = result.device.remoteId.toString().toUpperCase();
         final name = result.device.advName.isNotEmpty
             ? result.device.advName
             : result.device.platformName;
-        final isLarq = remoteId == LarqBleUuids.knownBottleRemoteId.toUpperCase() ||
-            name.toLowerCase().startsWith('larq_') ||
-            name.toLowerCase().contains('purevis') ||
-            name.toLowerCase() == 'larq' ||
-            name.toLowerCase() == 'pv';
+        final isLarq = name.toLowerCase().startsWith('larq_');
+        if (isLarq) {
+          print('[SVC]   device: $name ($remoteId) rssi=${result.rssi} larq=$isLarq');
+        }
         if (!isLarq) continue;
         if (seenIds.add(remoteId)) {
           results.add(result);
@@ -110,19 +199,29 @@ class LarqBleService {
       scanController.add(List.unmodifiable(results));
     });
 
+    scanController.onCancel = () {
+      sub.cancel();
+      FlutterBluePlus.stopScan();
+    };
+
     return scanController.stream;
   }
 
   /// Connect to a LARQ bottle with detailed error reporting.
   Future<({bool success, String error})> connectWithResult(BluetoothDevice device) async {
+    print('[SVC] connectWithResult connected=$_connected device=${device.remoteId}');
     if (_connected) await disconnect();
 
     _device = device;
     try {
+      FlutterBluePlus.stopScan(); // ensure no scan is running
+      await Future.delayed(const Duration(seconds: 1)); // let BlueZ settle
+      print('[SVC] calling device.connect()...');
       await device.connect().timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Connection timed out (15s)'),
       );
+      print('[SVC] device.connect() OK');
 
       _connected = true;
       _connectionController.add(true);
@@ -150,6 +249,8 @@ class LarqBleService {
       _notificationSubscription = _txCharacteristic!.onValueReceived.listen(
         _handleNotification,
       );
+
+      _startPoll();
 
       return (success: true, error: '');
     } on Exception catch (e) {
@@ -239,18 +340,52 @@ class LarqBleService {
 
 
   Future<void> disconnect({bool intentional = true}) async {
+    print('[SVC] disconnect BEGIN intentional=$intentional connected=$_connected device=${_device?.remoteId}');
+    _stopPoll();
     _intentionalDisconnect = intentional;
-    _notificationSubscription?.cancel();
-    _notificationSubscription = null;
-    try {
-      await _device?.disconnect().timeout(const Duration(seconds: 3));
-    } catch (_) {}
+    if (_notificationSubscription != null) {
+      print('[SVC]   cancelling notification subscription');
+      _notificationSubscription?.cancel();
+      _notificationSubscription = null;
+    }
+    if (_device != null) {
+      final remoteId = _device!.remoteId.toString();
+      print('[SVC]   calling device.disconnect()...');
+      try {
+        await _device!.disconnect().timeout(const Duration(seconds: 5));
+        print('[SVC]   device.disconnect() OK');
+        // Remove from BlueZ cache so the bottle can reconnect immediately
+        await _removeDeviceFromBlueZ(remoteId);
+      } catch (e) {
+        print('[SVC]   device.disconnect() failed: $e');
+      }
+    }
+    print('[SVC] disconnect DONE, clearing state');
     _device = null;
     _txCharacteristic = null;
     _rxCharacteristic = null;
+    _batteryCharacteristic = null;
     _connected = false;
     _connectionController.add(false);
-    try { FlutterBluePlus.stopScan(); } catch (_) {}
+    try { FlutterBluePlus.stopScan(); } catch (e) { print('[SVC] stopScan failed: $e'); }
+  }
+
+  /// Remove a device from BlueZ cache so it can be rediscovered immediately.
+  Future<void> _removeDeviceFromBlueZ(String remoteId) async {
+    try {
+      final result = await Process.run(
+        'bluetoothctl', ['remove', remoteId],
+        stdoutEncoding: utf8,
+        stderrEncoding: utf8,
+      ).timeout(const Duration(seconds: 3));
+      if (result.exitCode == 0) {
+        print('[SVC]   bluetoothctl remove $remoteId OK');
+      } else {
+        print('[SVC]   bluetoothctl remove $remoteId exit=${result.exitCode}');
+      }
+    } catch (e) {
+      print('[SVC]   bluetoothctl remove failed: $e');
+    }
   }
 
   Future<({CapEnumResponseCode code, Uint8List? body})> _sendRequest(
@@ -434,6 +569,7 @@ class LarqBleService {
 
 
   void resetState() {
+    _stopPoll();
     _bottleSensorState = null;
     _sipSensorState = null;
     _tofState = null;
@@ -450,10 +586,13 @@ class LarqBleService {
   }
 
   void dispose() {
+    print('[SVC] dispose called');
+    _stopPoll();
+    _pollItemController.close();
     _notificationSubscription?.cancel();
     _responseController.close();
     _connectionController.close();
-    disconnect();
+    disconnect().then((_) => print('[SVC] dispose disconnect done'));
   }
 }
 

@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../models/larq_protocol.dart';
 import '../services/larq_ble_service.dart';
 import '../services/health_connect_service.dart';
 import 'hydration_screen.dart';
-import 'scan_screen.dart';
 
 class DeviceScreen extends StatefulWidget {
   final LarqBleService bleService;
@@ -19,39 +17,27 @@ class DeviceScreen extends StatefulWidget {
 class _DeviceScreenState extends State<DeviceScreen> {
   final _healthService = HealthConnectService();
   StreamSubscription? _responseSubscription;
-  StreamSubscription? _connectionSubscription;
-  bool _disconnecting = false;
+  StreamSubscription? _pollItemSubscription;
 
-  bool _reconnecting = false;
-  int _reconnectAttempt = 0;
-  Timer? _reconnectTimer;
-  StreamSubscription? _reconnectScanSub;
-  bool _mounted = true;
-
-  // Poll loop state
-  bool _polling = false;
-  String? _fetchingItem;
+  String? _pollingItem;
   Duration _lastPollDuration = Duration.zero;
-  Timer? _pollTimer;
-  DateTime _pollStartedAt = DateTime.now();
-  int _pollSeq = 0;
+  bool _mounted = true;
 
   @override
   void initState() {
     super.initState();
     _responseSubscription = widget.bleService.responseStream.listen((_) {
-      if (mounted) setState(() {});
+      if (_mounted && mounted) setState(() {});
     });
-
-    _connectionSubscription =
-        widget.bleService.connectionStream.listen((connected) {
-      if (!connected && !widget.bleService.intentionalDisconnect && _mounted) {
-        _startReconnect();
+    _pollItemSubscription = widget.bleService.pollingItemStream.listen((item) {
+      if (_mounted && mounted) {
+        setState(() {
+          _pollingItem = item;
+          if (item == null) {
+            _lastPollDuration = widget.bleService.lastPollDuration;
+          }
+        });
       }
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _poll();
     });
   }
 
@@ -59,185 +45,12 @@ class _DeviceScreenState extends State<DeviceScreen> {
   void dispose() {
     _mounted = false;
     _responseSubscription?.cancel();
-    _connectionSubscription?.cancel();
-    _reconnectTimer?.cancel();
-    _reconnectScanSub?.cancel();
-    _pollTimer?.cancel();
+    _pollItemSubscription?.cancel();
     super.dispose();
   }
 
-  // --- Poll loop ---
-
-  Future<void> _poll() async {
-    if (_polling) return;
-    _polling = true;
-    _pollSeq++;
-    final seq = _pollSeq;
-    _pollStartedAt = DateTime.now();
-    if (mounted) setState(() {});
-
-    try {
-      await _fetchItem('ToF Log', () => widget.bleService.getTofLog());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem('ToF State', () => widget.bleService.getTofState());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem('Bottle Sensor',
-          () => widget.bleService.getBottleSensorState());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem('UI State', () => widget.bleService.getUiState());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem('SIP Sensor', () => widget.bleService.getSipSensorState());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem(
-          'Accelerometer', () => widget.bleService.getAccelerometerState());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem('Ambient Light',
-          () => widget.bleService.getAmbientLightSensorState());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem(
-          'Hall Effect', () => widget.bleService.getHallEffectSensorState());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem(
-          'Activation Log', () => widget.bleService.getActivationLog());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem('Fault Log', () => widget.bleService.getFaultLog());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem('Act ADC Log',
-          () => widget.bleService.getActivationAdcLog());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem('Chg ADC Log',
-          () => widget.bleService.getChargingAdcLog());
-      if (seq != _pollSeq || !_mounted) return;
-      await _fetchItem('Battery', () => widget.bleService.readBleBatteryLevel());
-    } catch (_) {}
-
-    _lastPollDuration = DateTime.now().difference(_pollStartedAt);
-    _polling = false;
-    _fetchingItem = null;
-    if (mounted) setState(() {});
-
-    _scheduleNextPoll();
-  }
-
-  Future<void> _fetchItem(
-      String label, Future<void> Function() fetch) async {
-    _fetchingItem = label;
-    if (mounted) setState(() {});
-    await fetch();
-  }
-
-  void _scheduleNextPoll() {
-    _pollTimer?.cancel();
-    final delay = _lastPollDuration * 2;
-    if (delay < const Duration(seconds: 1)) {
-      _pollTimer = Timer(const Duration(seconds: 1), _poll);
-    } else {
-      _pollTimer = Timer(delay, _poll);
-    }
-  }
-
-  // --- Reconnect logic ---
-
-  void _startReconnect() {
-    if (_reconnecting) return;
-    _pollTimer?.cancel();
-    _polling = false;
-    _fetchingItem = null;
-    _reconnecting = true;
-    _reconnectAttempt = 1;
-    if (mounted) setState(() {});
-    _tryReconnect();
-  }
-
-  void _tryReconnect() {
-    if (!_mounted || !_reconnecting) return;
-    if (mounted) setState(() {});
-
-    _reconnectScanSub?.cancel();
-    FlutterBluePlus.stopScan();
-
-    final remoteId =
-        widget.bleService.lastRemoteId ?? LarqBleUuids.knownBottleRemoteId;
-
-    _reconnectScanSub = widget.bleService
-        .scanForDevices(timeout: const Duration(seconds: 15))
-        .listen((results) {
-      if (!_mounted || !_reconnecting) return;
-      for (final r in results) {
-        final rid = r.device.remoteId.toString().toUpperCase();
-        if (rid == remoteId.toUpperCase()) {
-          _onReconnectFound(r);
-          return;
-        }
-      }
-    });
-
-    _reconnectTimer = Timer(const Duration(seconds: 15), () {
-      if (!_mounted || !_reconnecting) return;
-      _reconnectAttempt++;
-      _tryReconnect();
-    });
-  }
-
-  Future<void> _onReconnectFound(ScanResult result) async {
-    _reconnectTimer?.cancel();
-    _reconnectScanSub?.cancel();
-    FlutterBluePlus.stopScan();
-
-    widget.bleService.resetState();
-    final connectResult =
-        await widget.bleService.connectWithResult(result.device);
-
-    if (!_mounted) return;
-    if (connectResult.success) {
-      _reconnecting = false;
-      _reconnectAttempt = 0;
-      setState(() {});
-      _poll();
-    } else {
-      _reconnectAttempt++;
-      _tryReconnect();
-    }
-  }
-
-  void _dismissReconnect() {
-    _reconnecting = false;
-    _reconnectAttempt = 0;
-    _reconnectTimer?.cancel();
-    _reconnectScanSub?.cancel();
-    FlutterBluePlus.stopScan();
-    widget.bleService.disconnect(intentional: true);
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
-  }
-
-  // --- Disconnect ---
-
-  Future<void> _disconnect() async {
-    if (_disconnecting) return;
-    setState(() => _disconnecting = true);
-    _reconnecting = false;
-    _pollTimer?.cancel();
-    _reconnectTimer?.cancel();
-    _reconnectScanSub?.cancel();
-    _responseSubscription?.cancel();
-    _connectionSubscription?.cancel();
-    await widget.bleService.disconnect(intentional: true);
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-          builder: (_) => ScanScreen(bleService: widget.bleService)),
-      (_) => false,
-    );
-  }
-
-  String _nextPollText() {
-    if (_pollTimer == null || !_pollTimer!.isActive) return '';
-    final remaining = _lastPollDuration * 2;
-    final s = remaining.inSeconds;
-    if (s >= 60) return 'Next poll in ${s ~/ 60}m ${s % 60}s';
-    return 'Next poll in ${s}s';
+  Future<void> _manualPoll() async {
+    await widget.bleService.fetchAllData();
   }
 
   String _uiStateLabel(CapEnumUiState state) {
@@ -289,60 +102,48 @@ class _DeviceScreenState extends State<DeviceScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: (_polling || _disconnecting || _reconnecting)
-                ? null
-                : _poll,
-          ),
-          IconButton(
-            icon: const Icon(Icons.bluetooth_disabled),
-            onPressed: _disconnecting ? null : _disconnect,
+            tooltip: 'Manual refresh',
+            onPressed: _manualPoll,
           ),
         ],
       ),
-      body: Stack(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _PollStatusBar(
-                polling: _polling,
-                fetchingItem: _fetchingItem,
-                pollDuration: _lastPollDuration,
-                nextPollText: _pollTimer?.isActive == true ? _nextPollText() : '',
-              ),
-              const SizedBox(height: 12),
-              _StatusCard(
-                  uiState: uiState,
-                  statusColor: _statusColor(uiState),
-                  statusLabel: _uiStateLabel(uiState),
-                  loading: _fetchingItem == 'UI State'),
-              const SizedBox(height: 12),
-              _DeviceInfoCard(info: info),
-              const SizedBox(height: 12),
-              _SensorCard(ble: widget.bleService, fetchingItem: _fetchingItem),
-              const SizedBox(height: 12),
-              _ControlsCard(
-                ble: widget.bleService,
-                health: _healthService,
-                onFetch: _poll,
-                onNavigate: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => HydrationScreen(
-                        bleService: widget.bleService,
-                        healthService: _healthService,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+          _PollStatusBar(
+            polling: _pollingItem != null,
+            fetchingItem: _pollingItem,
+            pollDuration: _lastPollDuration,
           ),
-          if (_reconnecting)
-            _ReconnectOverlay(
-              attempt: _reconnectAttempt,
-              onDismiss: _dismissReconnect,
-            ),
+          const SizedBox(height: 12),
+          _StatusCard(
+            uiState: uiState,
+            statusColor: _statusColor(uiState),
+            statusLabel: _uiStateLabel(uiState),
+            loading: _pollingItem == 'UI State',
+          ),
+          const SizedBox(height: 12),
+          _DeviceInfoCard(info: info),
+          const SizedBox(height: 12),
+          _SensorCard(
+            ble: widget.bleService,
+            fetchingItem: _pollingItem,
+          ),
+          const SizedBox(height: 12),
+          _ControlsCard(
+            ble: widget.bleService,
+            health: _healthService,
+            onNavigate: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => HydrationScreen(
+                    bleService: widget.bleService,
+                    healthService: _healthService,
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -353,13 +154,11 @@ class _PollStatusBar extends StatelessWidget {
   final bool polling;
   final String? fetchingItem;
   final Duration pollDuration;
-  final String nextPollText;
 
   const _PollStatusBar({
     required this.polling,
     required this.fetchingItem,
     required this.pollDuration,
-    required this.nextPollText,
   });
 
   @override
@@ -384,65 +183,19 @@ class _PollStatusBar extends StatelessWidget {
                     ? (fetchingItem != null
                         ? 'Refreshing: $fetchingItem'
                         : 'Refreshing...')
-                    : nextPollText.isNotEmpty
-                        ? 'Idle — $nextPollText'
-                        : 'Idle',
+                    : 'Idle (background polling)',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
             Text(
-              '${(pollDuration.inMilliseconds / 1000).toStringAsFixed(1)}s cycle',
+              pollDuration > Duration.zero
+                  ? '${(pollDuration.inMilliseconds / 1000).toStringAsFixed(1)}s cycle'
+                  : '',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey,
                   ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ReconnectOverlay extends StatelessWidget {
-  final int attempt;
-  final VoidCallback onDismiss;
-
-  const _ReconnectOverlay({required this.attempt, required this.onDismiss});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black54,
-      child: Center(
-        child: Card(
-          margin: const EdgeInsets.all(32),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.coffee, size: 48, color: Colors.orange),
-                const SizedBox(height: 16),
-                const Text(
-                  'Bottle disconnected',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Press the cap button to wake it.\nReconnect attempt $attempt...',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 16),
-                const CircularProgressIndicator(strokeWidth: 2),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: onDismiss,
-                  child: const Text('Give up'),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -645,13 +398,11 @@ class _SensorRow extends StatelessWidget {
 class _ControlsCard extends StatelessWidget {
   final LarqBleService ble;
   final HealthConnectService health;
-  final VoidCallback onFetch;
   final VoidCallback onNavigate;
 
   const _ControlsCard({
     required this.ble,
     required this.health,
-    required this.onFetch,
     required this.onNavigate,
   });
 
@@ -670,8 +421,7 @@ class _ControlsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () =>
-                        ble.startPurification().then((_) => onFetch()),
+                    onPressed: () => ble.startPurification(),
                     icon: const Icon(Icons.water_drop),
                     label: const Text('Start UV'),
                   ),
@@ -679,8 +429,7 @@ class _ControlsCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () =>
-                        ble.stopPurification().then((_) => onFetch()),
+                    onPressed: () => ble.stopPurification(),
                     icon: const Icon(Icons.stop),
                     label: const Text('Stop UV'),
                   ),

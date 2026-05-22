@@ -39,7 +39,7 @@ class LarqBleUuids {
   static List<String> get scanUuids => [serviceUart];
 
   // Known bottle MAC for auto-connect
-  static const String knownBottleRemoteId = '4F:56:90:5B:A8:F7';
+  static const String knownBottleRemoteId = '56:D3:EA:9B:A5:6A';
 }
 
 // --- Enums ---
