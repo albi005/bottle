@@ -626,7 +626,7 @@ class _TofLogsCardState extends State<_TofLogsCard> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Load older entries'),
+                        : const Text('Load more entries'),
                   ),
                 ),
               ),
@@ -746,7 +746,7 @@ class _ActivationLogsCardState extends State<_ActivationLogsCard> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Load older entries'),
+                        : const Text('Load more entries'),
                   ),
                 ),
               ),
@@ -868,7 +868,7 @@ class _AdcLogsCardState extends State<_AdcLogsCard> {
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Load older activation ADC'),
+                          : const Text('Load more activation ADC'),
                     ),
                   ),
                 ),
@@ -930,7 +930,7 @@ class _AdcLogsCardState extends State<_AdcLogsCard> {
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Load older charging ADC'),
+                          : const Text('Load more charging ADC'),
                     ),
                   ),
                 ),
@@ -1027,7 +1027,7 @@ class _FaultLogsCardState extends State<_FaultLogsCard> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Load older entries'),
+                        : const Text('Load more entries'),
                   ),
                 ),
               ),

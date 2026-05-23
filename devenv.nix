@@ -16,6 +16,8 @@
     pkgs.curl
   ];
 
+  env.FLUTTER_SDK = config.env.FLUTTER_ROOT;
+
   enterShell = ''
     echo "Flutter Android development environment"
     echo "  Flutter: $(flutter --version 2>/dev/null | head -1)"

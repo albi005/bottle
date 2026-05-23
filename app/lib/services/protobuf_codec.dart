@@ -554,7 +554,7 @@ Uint8List encodeRequestSetCapPowerSavingMode(CapPowerSavingMode mode) {
 }
 
 // CapLogQuery: uint64 fromTimestamp=1; fixed32 limit=2; enum algo=3;
-Uint8List encodeCapLogQuery({int fromTimestamp = 0, int limit = 50, int algo = 0}) {
+Uint8List encodeCapLogQuery({int fromTimestamp = 0, int limit = 255, int algo = 0}) {
   final w = _PbWriter();
   w.writeUint64(1, fromTimestamp);
   w.writeFixed32(2, limit);

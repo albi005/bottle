@@ -522,12 +522,12 @@ class LarqBleService {
   // --- Public API methods ---
 
   Future<void> getCapStateLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
     final req = encodeRequestGetCapStateLog(q);
     await _sendRequest(CapBleRequestType.getCapStateLog, req);
   }
   Future<void> getTofLog() async {
-    final query = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final query = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
     final req = encodeRequestGetCapTofLog(query);
     await _sendRequest(CapBleRequestType.getCapTofLog, req);
   }
@@ -539,22 +539,22 @@ class LarqBleService {
   Future<void> getAmbientLightSensorState() async => _sendRequest(CapBleRequestType.getCapAmbientLightSensorState);
   Future<void> getHallEffectSensorState() async => _sendRequest(CapBleRequestType.getCapHallEffectSensorState);
   Future<void> getActivationLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
     final req = encodeRequestGetCapActivationLog(q);
     await _sendRequest(CapBleRequestType.getCapActivationLog, req);
   }
   Future<void> getFaultLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
     final req = encodeRequestGetCapFaultLog(q);
     await _sendRequest(CapBleRequestType.getCapFaultLog, req);
   }
   Future<void> getChargingAdcLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
     final req = encodeRequestGetChargingCapAdcLog(q);
     await _sendRequest(CapBleRequestType.getChargingCapAdcLog, req);
   }
   Future<void> getActivationAdcLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
     final req = encodeRequestGetActivationCapAdcLog(q);
     await _sendRequest(CapBleRequestType.getActivationCapAdcLog, req);
   }
@@ -624,35 +624,35 @@ class LarqBleService {
 
   Future<void> loadMoreTofLogs() async {
     final fromTs = _tofLogs.isEmpty ? 0 : _tofLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
-    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetCapTofLog(q);
     await _sendRequest(CapBleRequestType.getCapTofLog, req);
   }
 
   Future<void> loadMoreActivationLogs() async {
     final fromTs = _activationLogs.isEmpty ? 0 : _activationLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
-    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetCapActivationLog(q);
     await _sendRequest(CapBleRequestType.getCapActivationLog, req);
   }
 
   Future<void> loadMoreFaultLogs() async {
     final fromTs = _faultLogs.isEmpty ? 0 : _faultLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
-    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetCapFaultLog(q);
     await _sendRequest(CapBleRequestType.getCapFaultLog, req);
   }
 
   Future<void> loadMoreActivationAdcLogs() async {
     final fromTs = _activationAdcLogs.isEmpty ? 0 : _activationAdcLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
-    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetActivationCapAdcLog(q);
     await _sendRequest(CapBleRequestType.getActivationCapAdcLog, req);
   }
 
   Future<void> loadMoreChargingAdcLogs() async {
     final fromTs = _chargingAdcLogs.isEmpty ? 0 : _chargingAdcLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
-    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetChargingCapAdcLog(q);
     await _sendRequest(CapBleRequestType.getChargingCapAdcLog, req);
   }
