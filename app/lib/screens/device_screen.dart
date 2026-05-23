@@ -117,7 +117,10 @@ class _DeviceScreenState extends State<DeviceScreen> {
           const SizedBox(height: 8),
           _TofLogsCard(logs: ble.tofLogs, onLoadMore: ble.loadMoreTofLogs),
           const SizedBox(height: 8),
-          _ActivationLogsCard(logs: ble.activationLogs, onLoadMore: ble.loadMoreActivationLogs),
+          _ActivationLogsCard(
+            logs: ble.activationLogs,
+            onLoadMore: ble.loadMoreActivationLogs,
+          ),
           const SizedBox(height: 8),
           _AdcLogsCard(
             actLogs: ble.activationAdcLogs,
@@ -126,7 +129,10 @@ class _DeviceScreenState extends State<DeviceScreen> {
             onLoadMoreChg: ble.loadMoreChargingAdcLogs,
           ),
           const SizedBox(height: 8),
-          _FaultLogsCard(logs: ble.faultLogs, onLoadMore: ble.loadMoreFaultLogs),
+          _FaultLogsCard(
+            logs: ble.faultLogs,
+            onLoadMore: ble.loadMoreFaultLogs,
+          ),
           const SizedBox(height: 8),
           _ControlsCard(
             ble: ble,
@@ -545,7 +551,7 @@ class _TofLogsCardState extends State<_TofLogsCard> {
         title: Text('ToF Logs (${logs.length})'),
         subtitle: logs.isNotEmpty
             ? Text(
-                'Last: ${DateFormat.Hm().format(logs.last.dateTime)} — '
+                'Last: ${DateFormat.yMd().add_Hm().format(logs.last.dateTime.toLocal())} — '
                 '${_triggerLabel(logs.last.triggerType)} '
                 '${logs.last.distanceInMillimeter}mm',
                 maxLines: 1,
@@ -573,9 +579,11 @@ class _TofLogsCardState extends State<_TofLogsCard> {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 58,
+                      width: 100,
                       child: Text(
-                        DateFormat.Hm().format(log.dateTime),
+                        DateFormat(
+                          'MM-dd HH:mm',
+                        ).format(log.dateTime.toLocal()),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -596,18 +604,12 @@ class _TofLogsCardState extends State<_TofLogsCard> {
                     ),
                     Text(
                       '${log.distanceInMillimeter}mm',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '${log.kcps}kcps',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -674,7 +676,7 @@ class _ActivationLogsCardState extends State<_ActivationLogsCard> {
         title: Text('UV Activations (${logs.length})'),
         subtitle: logs.isNotEmpty
             ? Text(
-                'Last: ${DateFormat.Hm().format(logs.last.dateTime)} — '
+                'Last: ${DateFormat.yMd().add_Hm().format(logs.last.dateTime.toLocal())} — '
                 '${_uvModeLabel(logs.last.mode)} (${logs.last.batterySocInPercentage}%)',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -701,9 +703,11 @@ class _ActivationLogsCardState extends State<_ActivationLogsCard> {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 58,
+                      width: 100,
                       child: Text(
-                        DateFormat.Hm().format(log.dateTime),
+                        DateFormat(
+                          'MM-dd HH:mm',
+                        ).format(log.dateTime.toLocal()),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -724,10 +728,7 @@ class _ActivationLogsCardState extends State<_ActivationLogsCard> {
                     ),
                     Text(
                       '${log.batterySocInPercentage}%',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -834,12 +835,12 @@ class _AdcLogsCardState extends State<_AdcLogsCard> {
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 58,
+                        width: 100,
                         child: Text(
-                          DateFormat.Hm().format(
+                          DateFormat('MM-dd HH:mm').format(
                             DateTime.fromMillisecondsSinceEpoch(
                               log.timestamp * 1000,
-                            ),
+                            ).toLocal(),
                           ),
                           style: const TextStyle(fontSize: 12),
                         ),
@@ -861,7 +862,9 @@ class _AdcLogsCardState extends State<_AdcLogsCard> {
                   child: SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: _loading ? null : () => _loadMore(widget.onLoadMoreAct),
+                      onPressed: _loading
+                          ? null
+                          : () => _loadMore(widget.onLoadMoreAct),
                       child: _loading
                           ? const SizedBox(
                               width: 16,
@@ -896,12 +899,12 @@ class _AdcLogsCardState extends State<_AdcLogsCard> {
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 58,
+                        width: 100,
                         child: Text(
-                          DateFormat.Hm().format(
+                          DateFormat('MM-dd HH:mm').format(
                             DateTime.fromMillisecondsSinceEpoch(
                               log.timestamp * 1000,
-                            ),
+                            ).toLocal(),
                           ),
                           style: const TextStyle(fontSize: 12),
                         ),
@@ -923,7 +926,9 @@ class _AdcLogsCardState extends State<_AdcLogsCard> {
                   child: SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: _loading ? null : () => _loadMore(widget.onLoadMoreChg),
+                      onPressed: _loading
+                          ? null
+                          : () => _loadMore(widget.onLoadMoreChg),
                       child: _loading
                           ? const SizedBox(
                               width: 16,
@@ -973,7 +978,7 @@ class _FaultLogsCardState extends State<_FaultLogsCard> {
         title: Text('Fault Logs (${logs.length})'),
         subtitle: logs.isNotEmpty
             ? Text(
-                'Last: ${DateFormat.yMd().add_Hm().format(DateTime.fromMillisecondsSinceEpoch(logs.last.timestamp * 1000))} — '
+                'Last: ${DateFormat.yMd().add_Hm().format(DateTime.fromMillisecondsSinceEpoch(logs.last.timestamp * 1000).toLocal())} — '
                 '${_faultTypeLabel(logs.last.type)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1004,7 +1009,9 @@ class _FaultLogsCardState extends State<_FaultLogsCard> {
                 ),
                 title: Text(
                   DateFormat('yyyy-MM-dd HH:mm:ss').format(
-                    DateTime.fromMillisecondsSinceEpoch(log.timestamp * 1000),
+                    DateTime.fromMillisecondsSinceEpoch(
+                      log.timestamp * 1000,
+                    ).toLocal(),
                   ),
                   style: const TextStyle(fontSize: 13),
                 ),

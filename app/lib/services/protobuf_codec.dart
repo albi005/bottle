@@ -148,10 +148,18 @@ class _PbReader {
 
   void skipField(int wireType) {
     switch (wireType) {
-      case 0: _readVarint(); break; // varint
-      case 1: _pos += 8; break; // 64-bit
-      case 2: _pos += _readVarint(); break; // length-delimited
-      case 5: _pos += 4; break; // 32-bit
+      case 0:
+        _readVarint();
+        break; // varint
+      case 1:
+        _pos += 8;
+        break; // 64-bit
+      case 2:
+        _pos += _readVarint();
+        break; // length-delimited
+      case 5:
+        _pos += 4;
+        break; // 32-bit
     }
   }
 }
@@ -160,8 +168,11 @@ class _PbReader {
 // CapBleRequest: fixed32 requestId=1; Any body=2;
 // Any: string type_url=1; bytes value=2;
 
-Uint8List encodeCapBleRequest(int requestId, CapBleRequestType type,
-    [List<int>? payloadBytes]) {
+Uint8List encodeCapBleRequest(
+  int requestId,
+  CapBleRequestType type, [
+  List<int>? payloadBytes,
+]) {
   final w = _PbWriter();
   w.writeFixed32(1, requestId);
 
@@ -178,9 +189,13 @@ Uint8List encodeCapBleRequest(int requestId, CapBleRequestType type,
 // --- Decode CapBleResponse ---
 // CapBleResponse: fixed32 requestId=1; CapEnumResponseCode code=2; Any body=3;
 
-({int requestId, CapEnumResponseCode code, String? typeUrl,
-    Uint8List? bodyData}) decodeCapBleResponse(Uint8List data,
-    {void Function(String)? debugLog}) {
+({
+  int requestId,
+  CapEnumResponseCode code,
+  String? typeUrl,
+  Uint8List? bodyData,
+})
+decodeCapBleResponse(Uint8List data, {void Function(String)? debugLog}) {
   final r = _PbReader(data);
   int requestId = 0;
   CapEnumResponseCode code = CapEnumResponseCode.fail;
@@ -193,8 +208,12 @@ Uint8List encodeCapBleRequest(int requestId, CapBleRequestType type,
     if (f.wireType < 0) break;
     fieldsSeen.add('f${f.fieldNumber}:w${f.wireType}');
     switch (f.fieldNumber) {
-      case 1: requestId = r.readFixed32(); break;
-      case 2: code = CapEnumResponseCode.fromValue(r.readInt32()); break;
+      case 1:
+        requestId = r.readFixed32();
+        break;
+      case 2:
+        code = CapEnumResponseCode.fromValue(r.readInt32());
+        break;
       case 3:
         final anyData = r.readMessage();
         final ar = _PbReader(anyData);
@@ -203,19 +222,30 @@ Uint8List encodeCapBleRequest(int requestId, CapBleRequestType type,
           if (af.wireType < 0) break;
           fieldsSeen.add('  any.f${af.fieldNumber}:w${af.wireType}');
           switch (af.fieldNumber) {
-            case 1: typeUrl = ar.readString(); break;
-            case 2: bodyData = ar.readBytes(); break;
-            default: ar.skipField(af.wireType);
+            case 1:
+              typeUrl = ar.readString();
+              break;
+            case 2:
+              bodyData = ar.readBytes();
+              break;
+            default:
+              ar.skipField(af.wireType);
           }
         }
         bodyData ??= Uint8List(0);
         break;
-      default: r.skipField(f.wireType);
+      default:
+        r.skipField(f.wireType);
     }
   }
 
   debugLog?.call('fields: ${fieldsSeen.join(", ")}');
-  return (requestId: requestId, code: code, typeUrl: typeUrl, bodyData: bodyData);
+  return (
+    requestId: requestId,
+    code: code,
+    typeUrl: typeUrl,
+    bodyData: bodyData,
+  );
 }
 
 // --- Decode individual response payloads ---
@@ -229,12 +259,23 @@ CapTofLog _decodeCapTofLog(Uint8List data) {
     final f = r.readField();
     if (f.wireType < 0) break;
     switch (f.fieldNumber) {
-      case 1: timestamp = r.readUint64(); break;
-      case 2: triggerTypeVal = r.readInt32(); break;
-      case 3: distanceMm = r.readFixed32(); break;
-      case 4: kcps = r.readFixed32(); break;
-      case 5: uvLedTemp = r.readFloat(); break;
-      default: r.skipField(f.wireType);
+      case 1:
+        timestamp = r.readUint64();
+        break;
+      case 2:
+        triggerTypeVal = r.readInt32();
+        break;
+      case 3:
+        distanceMm = r.readFixed32();
+        break;
+      case 4:
+        kcps = r.readFixed32();
+        break;
+      case 5:
+        uvLedTemp = r.readFloat();
+        break;
+      default:
+        r.skipField(f.wireType);
     }
   }
   return CapTofLog(
@@ -253,8 +294,10 @@ List<CapTofLog> decodeResponseGetCapTofLog(Uint8List data) {
   while (!r.isDone) {
     final f = r.readField();
     if (f.wireType < 0) break;
-    if (f.fieldNumber == 1) items.add(_decodeCapTofLog(r.readMessage()));
-    else r.skipField(f.wireType);
+    if (f.fieldNumber == 1)
+      items.add(_decodeCapTofLog(r.readMessage()));
+    else
+      r.skipField(f.wireType);
   }
   return items;
 }
@@ -267,9 +310,14 @@ CapTofState _decodeCapTofState(Uint8List data) {
     final f = r.readField();
     if (f.wireType < 0) break;
     switch (f.fieldNumber) {
-      case 1: dist = r.readFixed32(); break;
-      case 2: kcps = r.readFixed32(); break;
-      default: r.skipField(f.wireType);
+      case 1:
+        dist = r.readFixed32();
+        break;
+      case 2:
+        kcps = r.readFixed32();
+        break;
+      default:
+        r.skipField(f.wireType);
     }
   }
   return CapTofState(distanceInMillimeter: dist, kcps: kcps);
@@ -282,8 +330,10 @@ CapTofState decodeResponseGetCapTofState(Uint8List data) {
   while (!r.isDone) {
     final f = r.readField();
     if (f.wireType < 0) break;
-    if (f.fieldNumber == 1) result = _decodeCapTofState(r.readMessage());
-    else r.skipField(f.wireType);
+    if (f.fieldNumber == 1)
+      result = _decodeCapTofState(r.readMessage());
+    else
+      r.skipField(f.wireType);
   }
   return result ?? CapTofState(distanceInMillimeter: 0, kcps: 0);
 }
@@ -291,14 +341,20 @@ CapTofState decodeResponseGetCapTofState(Uint8List data) {
 // CapBottleSensorState: sint32 value=1; bool state=2;
 CapBottleSensorState _decodeCapBottleSensorState(Uint8List data) {
   final r = _PbReader(data);
-  int val = 0; bool state = false;
+  int val = 0;
+  bool state = false;
   while (!r.isDone) {
     final f = r.readField();
     if (f.wireType < 0) break;
     switch (f.fieldNumber) {
-      case 1: val = r.readSint32(); break;
-      case 2: state = r.readBool(); break;
-      default: r.skipField(f.wireType);
+      case 1:
+        val = r.readSint32();
+        break;
+      case 2:
+        state = r.readBool();
+        break;
+      default:
+        r.skipField(f.wireType);
     }
   }
   return CapBottleSensorState(value: val, state: state);
@@ -310,8 +366,10 @@ CapBottleSensorState decodeResponseGetCapBottleSensorState(Uint8List data) {
   while (!r.isDone) {
     final f = r.readField();
     if (f.wireType < 0) break;
-    if (f.fieldNumber == 1) result = _decodeCapBottleSensorState(r.readMessage());
-    else r.skipField(f.wireType);
+    if (f.fieldNumber == 1)
+      result = _decodeCapBottleSensorState(r.readMessage());
+    else
+      r.skipField(f.wireType);
   }
   return result ?? CapBottleSensorState(value: 0, state: false);
 }
@@ -319,14 +377,20 @@ CapBottleSensorState decodeResponseGetCapBottleSensorState(Uint8List data) {
 // CapSipSensorState: sint32 value=1; bool state=2;
 CapSipSensorState _decodeCapSipSensorState(Uint8List data) {
   final r = _PbReader(data);
-  int val = 0; bool state = false;
+  int val = 0;
+  bool state = false;
   while (!r.isDone) {
     final f = r.readField();
     if (f.wireType < 0) break;
     switch (f.fieldNumber) {
-      case 1: val = r.readSint32(); break;
-      case 2: state = r.readBool(); break;
-      default: r.skipField(f.wireType);
+      case 1:
+        val = r.readSint32();
+        break;
+      case 2:
+        state = r.readBool();
+        break;
+      default:
+        r.skipField(f.wireType);
     }
   }
   return CapSipSensorState(value: val, state: state);
@@ -338,8 +402,10 @@ CapSipSensorState decodeResponseGetCapSipSensorState(Uint8List data) {
   while (!r.isDone) {
     final f = r.readField();
     if (f.wireType < 0) break;
-    if (f.fieldNumber == 1) result = _decodeCapSipSensorState(r.readMessage());
-    else r.skipField(f.wireType);
+    if (f.fieldNumber == 1)
+      result = _decodeCapSipSensorState(r.readMessage());
+    else
+      r.skipField(f.wireType);
   }
   return result ?? CapSipSensorState(value: 0, state: false);
 }
@@ -357,34 +423,50 @@ CapAccelerometerState decodeResponseGetCapAccelerometerState(Uint8List data) {
         final fi = inner.readField();
         if (fi.wireType < 0) break;
         switch (fi.fieldNumber) {
-          case 1: x = inner.readFloat(); break;
-          case 2: y = inner.readFloat(); break;
-          case 3: z = inner.readFloat(); break;
-          default: inner.skipField(fi.wireType);
+          case 1:
+            x = inner.readFloat();
+            break;
+          case 2:
+            y = inner.readFloat();
+            break;
+          case 3:
+            z = inner.readFloat();
+            break;
+          default:
+            inner.skipField(fi.wireType);
         }
       }
-    } else { r.skipField(f.wireType); }
+    } else {
+      r.skipField(f.wireType);
+    }
   }
   return CapAccelerometerState(x: x, y: y, z: z);
 }
 
 // ResponseGetCapUiState: CapEnumUiState state=1; CapPowerSavingMode powerSavingMode=2;
 ({CapEnumUiState state, CapPowerSavingMode powerSavingMode})
-    decodeResponseGetCapUiState(Uint8List data) {
+decodeResponseGetCapUiState(Uint8List data) {
   final r = _PbReader(data);
   int stateVal = 0, psmVal = -1;
   while (!r.isDone) {
     final f = r.readField();
     if (f.wireType < 0) break;
     switch (f.fieldNumber) {
-      case 1: stateVal = r.readInt32(); break;
-      case 2: psmVal = r.readInt32(); break;
-      default: r.skipField(f.wireType);
+      case 1:
+        stateVal = r.readInt32();
+        break;
+      case 2:
+        psmVal = r.readInt32();
+        break;
+      default:
+        r.skipField(f.wireType);
     }
   }
   return (
     state: CapEnumUiState.fromValue(stateVal),
-    powerSavingMode: psmVal == 0 ? CapPowerSavingMode.on : CapPowerSavingMode.off,
+    powerSavingMode: psmVal == 0
+        ? CapPowerSavingMode.on
+        : CapPowerSavingMode.off,
   );
 }
 
@@ -402,20 +484,32 @@ List<CapActivationLog> decodeResponseGetCapActivationLog(Uint8List data) {
         final fi = inner.readField();
         if (fi.wireType < 0) break;
         switch (fi.fieldNumber) {
-          case 1: ts = inner.readUint64(); break;
-          case 2: modeV = inner.readInt32(); break;
-          case 3: batt = inner.readFixed32(); break;
-          default: inner.skipField(fi.wireType);
+          case 1:
+            ts = inner.readUint64();
+            break;
+          case 2:
+            modeV = inner.readInt32();
+            break;
+          case 3:
+            batt = inner.readFixed32();
+            break;
+          default:
+            inner.skipField(fi.wireType);
         }
       }
-      items.add(CapActivationLog(
-        timestamp: ts,
-        mode: CapEnumUvActivationMode.values
-            .firstWhere((e) => e.value == modeV,
-                orElse: () => CapEnumUvActivationMode.standard),
-        batterySocInPercentage: batt,
-      ));
-    } else { r.skipField(f.wireType); }
+      items.add(
+        CapActivationLog(
+          timestamp: ts,
+          mode: CapEnumUvActivationMode.values.firstWhere(
+            (e) => e.value == modeV,
+            orElse: () => CapEnumUvActivationMode.standard,
+          ),
+          batterySocInPercentage: batt,
+        ),
+      );
+    } else {
+      r.skipField(f.wireType);
+    }
   }
   return items;
 }
@@ -434,13 +528,22 @@ List<CapFaultLog> decodeResponseGetCapFaultLog(Uint8List data) {
         final fi = inner.readField();
         if (fi.wireType < 0) break;
         switch (fi.fieldNumber) {
-          case 1: ts = inner.readUint64(); break;
-          case 2: tv = inner.readInt32(); break;
-          default: inner.skipField(fi.wireType);
+          case 1:
+            ts = inner.readUint64();
+            break;
+          case 2:
+            tv = inner.readInt32();
+            break;
+          default:
+            inner.skipField(fi.wireType);
         }
       }
-      items.add(CapFaultLog(timestamp: ts, type: CapEnumFaultType.fromValue(tv)));
-    } else { r.skipField(f.wireType); }
+      items.add(
+        CapFaultLog(timestamp: ts, type: CapEnumFaultType.fromValue(tv)),
+      );
+    } else {
+      r.skipField(f.wireType);
+    }
   }
   return items;
 }
@@ -462,26 +565,45 @@ List<CapAdcLog> _decodeCapAdcLogList(Uint8List data) {
         final fi = inner.readField();
         if (fi.wireType < 0) break;
         switch (fi.fieldNumber) {
-          case 1: ts = inner.readUint64(); break;
-          case 2: batteryInVolt = inner.readFloat(); break;
-          case 3: batteryTempInOhm = inner.readFloat(); break;
-          case 4: uvLedInVolt = inner.readFloat(); break;
-          case 5: uvLedCurrent = inner.readFloat(); break;
-          case 6: uvLedTemp = inner.readFloat(); break;
-          case 7: cPcbTemp = inner.readFloat(); break;
-          default: inner.skipField(fi.wireType);
+          case 1:
+            ts = inner.readUint64();
+            break;
+          case 2:
+            batteryInVolt = inner.readFloat();
+            break;
+          case 3:
+            batteryTempInOhm = inner.readFloat();
+            break;
+          case 4:
+            uvLedInVolt = inner.readFloat();
+            break;
+          case 5:
+            uvLedCurrent = inner.readFloat();
+            break;
+          case 6:
+            uvLedTemp = inner.readFloat();
+            break;
+          case 7:
+            cPcbTemp = inner.readFloat();
+            break;
+          default:
+            inner.skipField(fi.wireType);
         }
       }
-      items.add(CapAdcLog(
-        timestamp: ts,
-        batteryInVolt: batteryInVolt,
-        batteryTempInOhm: batteryTempInOhm,
-        uvLedInVolt: uvLedInVolt,
-        uvLedCurrentInMilliamps: uvLedCurrent,
-        uvLedTempInOhm: uvLedTemp,
-        cPcbTempInOhm: cPcbTemp,
-      ));
-    } else { r.skipField(f.wireType); }
+      items.add(
+        CapAdcLog(
+          timestamp: ts,
+          batteryInVolt: batteryInVolt,
+          batteryTempInOhm: batteryTempInOhm,
+          uvLedInVolt: uvLedInVolt,
+          uvLedCurrentInMilliamps: uvLedCurrent,
+          uvLedTempInOhm: uvLedTemp,
+          cPcbTempInOhm: cPcbTemp,
+        ),
+      );
+    } else {
+      r.skipField(f.wireType);
+    }
   }
   return items;
 }
@@ -496,7 +618,8 @@ List<CapAdcLog> decodeResponseGetChargingCapAdcLog(Uint8List data) {
 
 // CapAmbientLightSensorState: float value=1;
 CapAmbientLightSensorState decodeResponseGetCapAmbientLightSensorState(
-    Uint8List data) {
+  Uint8List data,
+) {
   final r = _PbReader(data);
   double val = 0;
   while (!r.isDone) {
@@ -507,17 +630,22 @@ CapAmbientLightSensorState decodeResponseGetCapAmbientLightSensorState(
       while (!inner.isDone) {
         final fi = inner.readField();
         if (fi.wireType < 0) break;
-        if (fi.fieldNumber == 1) val = inner.readFloat();
-        else inner.skipField(fi.wireType);
+        if (fi.fieldNumber == 1)
+          val = inner.readFloat();
+        else
+          inner.skipField(fi.wireType);
       }
-    } else { r.skipField(f.wireType); }
+    } else {
+      r.skipField(f.wireType);
+    }
   }
   return CapAmbientLightSensorState(value: val.toInt());
 }
 
 // CapHallEffectSensorState: uint64 timestamp=1; bool value=2;
 CapHallEffectSensorState decodeResponseGetCapHallEffectSensorState(
-    Uint8List data) {
+  Uint8List data,
+) {
   final r = _PbReader(data);
   bool val = false;
   while (!r.isDone) {
@@ -528,10 +656,14 @@ CapHallEffectSensorState decodeResponseGetCapHallEffectSensorState(
       while (!inner.isDone) {
         final fi = inner.readField();
         if (fi.wireType < 0) break;
-        if (fi.fieldNumber == 2) val = inner.readBool();
-        else inner.skipField(fi.wireType);
+        if (fi.fieldNumber == 2)
+          val = inner.readBool();
+        else
+          inner.skipField(fi.wireType);
       }
-    } else { r.skipField(f.wireType); }
+    } else {
+      r.skipField(f.wireType);
+    }
   }
   return CapHallEffectSensorState(state: val);
 }
@@ -554,7 +686,11 @@ Uint8List encodeRequestSetCapPowerSavingMode(CapPowerSavingMode mode) {
 }
 
 // CapLogQuery: uint64 fromTimestamp=1; fixed32 limit=2; enum algo=3;
-Uint8List encodeCapLogQuery({int fromTimestamp = 0, int limit = 255, int algo = 0}) {
+Uint8List encodeCapLogQuery({
+  int fromTimestamp = 0,
+  int limit = 255,
+  int algo = 0,
+}) {
   final w = _PbWriter();
   w.writeUint64(1, fromTimestamp);
   w.writeFixed32(2, limit);

@@ -11,9 +11,11 @@ Future<void> _requestBlePermissions() async {
     Permission.bluetoothConnect,
     Permission.locationWhenInUse,
   ].request();
-  print('[APP] bluetoothScan=${await Permission.bluetoothScan.status} '
-      'bluetoothConnect=${await Permission.bluetoothConnect.status} '
-      'location=${await Permission.locationWhenInUse.status}');
+  print(
+    '[APP] bluetoothScan=${await Permission.bluetoothScan.status} '
+    'bluetoothConnect=${await Permission.bluetoothConnect.status} '
+    'location=${await Permission.locationWhenInUse.status}',
+  );
 }
 
 void main() async {

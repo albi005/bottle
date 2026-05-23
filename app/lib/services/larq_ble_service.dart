@@ -68,18 +68,31 @@ class LarqBleService {
   List<CapTofLog> get tofLogs => List.unmodifiable(_tofLogs);
 
   List<CapActivationLog> _activationLogs = [];
-  List<CapActivationLog> get activationLogs => List.unmodifiable(_activationLogs);
+  List<CapActivationLog> get activationLogs =>
+      List.unmodifiable(_activationLogs);
 
   List<CapFaultLog> _faultLogs = [];
   List<CapFaultLog> get faultLogs => List.unmodifiable(_faultLogs);
 
   List<CapAdcLog> _activationAdcLogs = [];
-  List<CapAdcLog> get activationAdcLogs => List.unmodifiable(_activationAdcLogs);
+  List<CapAdcLog> get activationAdcLogs =>
+      List.unmodifiable(_activationAdcLogs);
 
   List<CapAdcLog> _chargingAdcLogs = [];
   List<CapAdcLog> get chargingAdcLogs => List.unmodifiable(_chargingAdcLogs);
 
   Stream<LarqResponse> get responseStream => _responseController.stream;
+
+  // Per-type auto-paging counters to prevent runaway chains
+  static const int _maxAutoPages = 150;
+  int _tofAutoPages = 0;
+  int _actAutoPages = 0;
+  int _faultAutoPages = 0;
+  int _actAdcAutoPages = 0;
+  int _chgAdcAutoPages = 0;
+
+  // Track whether we've done the high-TS jump to latest entries
+  bool _jumpedToLatest = false;
 
   // Background poll loop
   bool _polling = false;
@@ -119,6 +132,18 @@ class LarqBleService {
 
     try {
       await _pollItem('ToF Log', getTofLog);
+      if (!_jumpedToLatest && _tofLogs.isNotEmpty && _connected) {
+        // One-time: use high-TS descending query to fetch newest entries
+        _jumpedToLatest = true;
+        final nowUtc = DateTime.now().toUtc();
+        final highTs =
+            nowUtc.add(const Duration(days: 365)).millisecondsSinceEpoch ~/
+            1000;
+        print('[LARQ] Poll: sending high-TS jump query (ts=$highTs)');
+        final q = encodeCapLogQuery(fromTimestamp: highTs, limit: 255);
+        final req = encodeRequestGetCapTofLog(q);
+        await _sendRequest(CapBleRequestType.getCapTofLog, req);
+      }
       if (seq != _pollSeq) return;
       await _pollItem('ToF State', getTofState);
       if (seq != _pollSeq) return;
@@ -170,7 +195,9 @@ class LarqBleService {
 
   /// Scan for LARQ bottle devices. Shows all BLE devices on Linux
   /// since BlueZ doesn't always support service UUID filter in scan.
-  Stream<List<ScanResult>> scanForDevices({Duration timeout = const Duration(seconds: 15)}) {
+  Stream<List<ScanResult>> scanForDevices({
+    Duration timeout = const Duration(seconds: 15),
+  }) {
     FlutterBluePlus.stopScan();
     final seenIds = <String>{};
     final results = <ScanResult>[];
@@ -188,7 +215,9 @@ class LarqBleService {
             : result.device.platformName;
         final isLarq = name.toLowerCase().startsWith('larq_');
         if (isLarq) {
-          print('[SVC]   device: $name ($remoteId) rssi=${result.rssi} larq=$isLarq');
+          print(
+            '[SVC]   device: $name ($remoteId) rssi=${result.rssi} larq=$isLarq',
+          );
         }
         if (!isLarq) continue;
         if (seenIds.add(remoteId)) {
@@ -208,8 +237,12 @@ class LarqBleService {
   }
 
   /// Connect to a LARQ bottle with detailed error reporting.
-  Future<({bool success, String error})> connectWithResult(BluetoothDevice device) async {
-    print('[SVC] connectWithResult connected=$_connected device=${device.remoteId}');
+  Future<({bool success, String error})> connectWithResult(
+    BluetoothDevice device,
+  ) async {
+    print(
+      '[SVC] connectWithResult connected=$_connected device=${device.remoteId}',
+    );
     if (_connected) await disconnect();
 
     _device = device;
@@ -236,13 +269,16 @@ class LarqBleService {
         _connectionController.add(false);
         return (
           success: false,
-          error: 'UART service found but missing TX/RX characteristics. '
-              'Device may be in DFU mode.'
+          error:
+              'UART service found but missing TX/RX characteristics. '
+              'Device may be in DFU mode.',
         );
       }
 
       // Read standard BLE info (non-critical, don't fail on error)
-      try { await _readDeviceInfo(); } catch (_) {}
+      try {
+        await _readDeviceInfo();
+      } catch (_) {}
 
       // Set up notifications on TX characteristic (bottle -> phone: 6e400003, notify)
       await _txCharacteristic!.setNotifyValue(true);
@@ -256,7 +292,9 @@ class LarqBleService {
     } on Exception catch (e) {
       _connected = false;
       _connectionController.add(false);
-      try { await device.disconnect(); } catch (_) {}
+      try {
+        await device.disconnect();
+      } catch (_) {}
       return (success: false, error: '${e.runtimeType}: $e');
     }
   }
@@ -289,8 +327,14 @@ class LarqBleService {
           } else if (_uuidMatch(char.characteristicUuid, LarqBleUuids.charRx)) {
             _rxCharacteristic = char;
           }
-        } else if (_uuidMatch(service.serviceUuid, LarqBleUuids.serviceBattery)) {
-          if (_uuidMatch(char.characteristicUuid, LarqBleUuids.charBatteryLevel)) {
+        } else if (_uuidMatch(
+          service.serviceUuid,
+          LarqBleUuids.serviceBattery,
+        )) {
+          if (_uuidMatch(
+            char.characteristicUuid,
+            LarqBleUuids.charBatteryLevel,
+          )) {
             _batteryCharacteristic = char;
           }
         }
@@ -328,24 +372,43 @@ class LarqBleService {
     }
 
     _deviceInfo = _deviceInfo.copyWith(
-      modelNumber: await readChar(LarqBleUuids.serviceDeviceInfo, LarqBleUuids.charModelNumber),
-      serialNumber: await readChar(LarqBleUuids.serviceDeviceInfo, LarqBleUuids.charSerialNumber),
-      firmwareRevision: await readChar(LarqBleUuids.serviceDeviceInfo, LarqBleUuids.charFirmwareRevision),
-      hardwareRevision: await readChar(LarqBleUuids.serviceDeviceInfo, LarqBleUuids.charHardwareRevision),
-      softwareRevision: await readChar(LarqBleUuids.serviceDeviceInfo, LarqBleUuids.charSoftwareRevision),
+      modelNumber: await readChar(
+        LarqBleUuids.serviceDeviceInfo,
+        LarqBleUuids.charModelNumber,
+      ),
+      serialNumber: await readChar(
+        LarqBleUuids.serviceDeviceInfo,
+        LarqBleUuids.charSerialNumber,
+      ),
+      firmwareRevision: await readChar(
+        LarqBleUuids.serviceDeviceInfo,
+        LarqBleUuids.charFirmwareRevision,
+      ),
+      hardwareRevision: await readChar(
+        LarqBleUuids.serviceDeviceInfo,
+        LarqBleUuids.charHardwareRevision,
+      ),
+      softwareRevision: await readChar(
+        LarqBleUuids.serviceDeviceInfo,
+        LarqBleUuids.charSoftwareRevision,
+      ),
     );
 
     // Try reading battery level via standard BLE Battery Service
-    final battVal = await readChar(LarqBleUuids.serviceBattery, LarqBleUuids.charBatteryLevel);
+    final battVal = await readChar(
+      LarqBleUuids.serviceBattery,
+      LarqBleUuids.charBatteryLevel,
+    );
     if (battVal.isNotEmpty) {
       _batteryLevel = battVal.codeUnits.first;
       print('[LARQ] Battery from BLE GATT: $_batteryLevel%');
     }
   }
 
-
   Future<void> disconnect({bool intentional = true}) async {
-    print('[SVC] disconnect BEGIN intentional=$intentional connected=$_connected device=${_device?.remoteId}');
+    print(
+      '[SVC] disconnect BEGIN intentional=$intentional connected=$_connected device=${_device?.remoteId}',
+    );
     _stopPoll();
     _intentionalDisconnect = intentional;
     if (_notificationSubscription != null) {
@@ -372,14 +435,19 @@ class LarqBleService {
     _batteryCharacteristic = null;
     _connected = false;
     _connectionController.add(false);
-    try { FlutterBluePlus.stopScan(); } catch (e) { print('[SVC] stopScan failed: $e'); }
+    try {
+      FlutterBluePlus.stopScan();
+    } catch (e) {
+      print('[SVC] stopScan failed: $e');
+    }
   }
 
   /// Remove a device from BlueZ cache so it can be rediscovered immediately.
   Future<void> _removeDeviceFromBlueZ(String remoteId) async {
     try {
       final result = await Process.run(
-        'bluetoothctl', ['remove', remoteId],
+        'bluetoothctl',
+        ['remove', remoteId],
         stdoutEncoding: utf8,
         stderrEncoding: utf8,
       ).timeout(const Duration(seconds: 3));
@@ -394,7 +462,9 @@ class LarqBleService {
   }
 
   Future<({CapEnumResponseCode code, Uint8List? body})> _sendRequest(
-      CapBleRequestType type, [List<int>? payload]) async {
+    CapBleRequestType type, [
+    List<int>? payload,
+  ]) async {
     if (_rxCharacteristic == null) {
       throw Exception('Not connected to bottle');
     }
@@ -423,17 +493,24 @@ class LarqBleService {
 
   void _handleNotification(List<int> data) {
     // Print first 64 bytes hex
-    final preview = data.sublist(0, data.length.clamp(0, 64))
-        .map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    final preview = data
+        .sublist(0, data.length.clamp(0, 64))
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
     print('[LARQ] RX ${data.length}B: $preview');
 
     // Full CapBleResponse protocol
-    final decoded = decodeCapBleResponse(Uint8List.fromList(data),
+    final decoded = decodeCapBleResponse(
+      Uint8List.fromList(data),
       debugLog: (msg) => print('[LARQ]   $msg'),
     );
-    print('[LARQ] id=${decoded.requestId} code=${decoded.code.name} type_url=${decoded.typeUrl} bodyLen=${decoded.bodyData?.length}');
+    print(
+      '[LARQ] id=${decoded.requestId} code=${decoded.code.name} type_url=${decoded.typeUrl} bodyLen=${decoded.bodyData?.length}',
+    );
     if (decoded.bodyData != null && decoded.bodyData!.isNotEmpty) {
-      print('[LARQ]   body hex: ${decoded.bodyData!.sublist(0, decoded.bodyData!.length.clamp(0, 64)).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+      print(
+        '[LARQ]   body hex: ${decoded.bodyData!.sublist(0, decoded.bodyData!.length.clamp(0, 64)).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}',
+      );
     }
     _pendingRequests[decoded.requestId]?.complete(Uint8List.fromList(data));
 
@@ -447,120 +524,213 @@ class LarqBleService {
       // Remove any package prefix for matching
       final short = typeUrl.replaceFirst(RegExp(r'^.*/'), '');
       if (short == 'ResponseGetCapTofLog') {
-        print('[LARQ] ToF log body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
+        print(
+          '[LARQ] ToF log body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)',
+        );
         final newEntries = decodeResponseGetCapTofLog(body);
         print('[LARQ] ToF log entries: ${newEntries.length}');
-        _mergeLogList(_tofLogs, newEntries);
+        if (newEntries.isNotEmpty) {
+          final firstTs = newEntries.first.timestamp;
+          final lastTs = newEntries.last.timestamp;
+          print(
+            '[LARQ] ToF ts range: $firstTs..$lastTs '
+            '(${DateTime.fromMillisecondsSinceEpoch(firstTs * 1000, isUtc: true).toLocal()} .. '
+            '${DateTime.fromMillisecondsSinceEpoch(lastTs * 1000, isUtc: true).toLocal()})',
+          );
+        }
+        final added = _mergeLogList(_tofLogs, newEntries);
         _tofLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         _responseController.add(LarqResponse.tofLog(_tofLogs));
+        if (added >= 7 && _tofAutoPages < _maxAutoPages) {
+          _tofAutoPages++;
+          _autoPageTofLogs();
+        } else if (added < 7 && !_jumpedToLatest && _tofLogs.isNotEmpty) {
+          // Auto-paging exhausted — try high-TS descending query to get
+          // the newest entries that ascending paging may not have reached.
+          _jumpedToLatest = true;
+          print('[LARQ] Auto-paging done (added=$added), jumping to latest');
+          _autoPageTofLogsHigh();
+        }
       } else if (short == 'ResponseGetCapStateLog') {
-        print('[LARQ] StateLog body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
+        print(
+          '[LARQ] StateLog body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)',
+        );
         final newEntries = decodeResponseGetCapTofLog(body);
         print('[LARQ] StateLog as ToF: ${newEntries.length} entries');
-        _mergeLogList(_tofLogs, newEntries);
+        if (newEntries.isNotEmpty) {
+          final firstTs = newEntries.first.timestamp;
+          final lastTs = newEntries.last.timestamp;
+          print(
+            '[LARQ] StateLog ts range: $firstTs..$lastTs '
+            '(${DateTime.fromMillisecondsSinceEpoch(firstTs * 1000, isUtc: true).toLocal()} .. '
+            '${DateTime.fromMillisecondsSinceEpoch(lastTs * 1000, isUtc: true).toLocal()})',
+          );
+        }
+        final added = _mergeLogList(_tofLogs, newEntries);
         _tofLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         _responseController.add(LarqResponse.tofLog(_tofLogs));
-      } else if (short == 'ResponseGetCapTofState') {
-        _tofState = decodeResponseGetCapTofState(body);
-        _responseController.add(LarqResponse.tofState(_tofState!));
-      } else if (short == 'ResponseGetCapBottleSensorState') {
-        _bottleSensorState = decodeResponseGetCapBottleSensorState(body);
-        _responseController.add(LarqResponse.bottleSensorState(_bottleSensorState!));
-      } else if (short == 'ResponseGetCapSipSensorState') {
-        _sipSensorState = decodeResponseGetCapSipSensorState(body);
-        _responseController.add(LarqResponse.sipSensorState(_sipSensorState!));
-      } else if (short == 'ResponseGetCapAccelerometerState') {
-        _accelerometerState = decodeResponseGetCapAccelerometerState(body);
-        _responseController.add(LarqResponse.accelerometerState(_accelerometerState!));
-      } else if (short == 'ResponseGetCapUiState') {
-        final result = decodeResponseGetCapUiState(body);
-        _uiState = result.state;
-        _powerSavingMode = result.powerSavingMode;
-        _responseController.add(LarqResponse.uiState(result.state, result.powerSavingMode));
+        if (added >= 7 && _tofAutoPages < _maxAutoPages) {
+          _tofAutoPages++;
+          _autoPageTofLogs();
+        }
       } else if (short == 'ResponseGetCapActivationLog') {
-        print('[LARQ] Activation log body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
+        print(
+          '[LARQ] Activation log body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)',
+        );
         final newEntries = decodeResponseGetCapActivationLog(body);
         print('[LARQ] Activation log entries: ${newEntries.length}');
-        _mergeLogList(_activationLogs, newEntries);
+        final added = _mergeLogList(_activationLogs, newEntries);
         _activationLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         if (_activationLogs.isNotEmpty) {
           _batteryLevel = _activationLogs.last.batterySocInPercentage;
           print('[LARQ] Battery from activation log: $_batteryLevel%');
         }
         _responseController.add(LarqResponse.activationLog(_activationLogs));
+        if (added >= 7 && _actAutoPages < _maxAutoPages) {
+          _actAutoPages++;
+          _autoPageActivationLogs();
+        }
       } else if (short == 'ResponseGetActivationCapAdcLog') {
-        print('[LARQ] Act ADC body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
+        print(
+          '[LARQ] Act ADC body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)',
+        );
         final newEntries = decodeResponseGetActivationCapAdcLog(body);
         print('[LARQ] Act ADC log entries: ${newEntries.length}');
-        _mergeLogList(_activationAdcLogs, newEntries);
+        final added = _mergeLogList(_activationAdcLogs, newEntries);
         _activationAdcLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        if (added >= 7 && _actAdcAutoPages < _maxAutoPages) {
+          _actAdcAutoPages++;
+          _autoPageActivationAdcLogs();
+        }
       } else if (short == 'ResponseGetChargingCapAdcLog') {
         final newEntries = decodeResponseGetChargingCapAdcLog(body);
-        _mergeLogList(_chargingAdcLogs, newEntries);
+        final added = _mergeLogList(_chargingAdcLogs, newEntries);
         _chargingAdcLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         print('[LARQ] Chg ADC log entries: ${_chargingAdcLogs.length}');
+        if (added >= 7 && _chgAdcAutoPages < _maxAutoPages) {
+          _chgAdcAutoPages++;
+          _autoPageChargingAdcLogs();
+        }
       } else if (short == 'ResponseGetCapFaultLog') {
         final newEntries = decodeResponseGetCapFaultLog(body);
-        _mergeLogList(_faultLogs, newEntries);
+        final added = _mergeLogList(_faultLogs, newEntries);
         _faultLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         print('[LARQ] Fault log entries: ${_faultLogs.length}');
         _responseController.add(LarqResponse.faultLog(_faultLogs));
+        if (added >= 7 && _faultAutoPages < _maxAutoPages) {
+          _faultAutoPages++;
+          _autoPageFaultLogs();
+        }
       } else if (short == 'ResponseGetCapAmbientLightSensorState') {
         _ambientLightState = decodeResponseGetCapAmbientLightSensorState(body);
-        _responseController.add(LarqResponse.ambientLightState(_ambientLightState!));
+        _responseController.add(
+          LarqResponse.ambientLightState(_ambientLightState!),
+        );
       } else if (short == 'ResponseGetCapHallEffectSensorState') {
         _hallEffectState = decodeResponseGetCapHallEffectSensorState(body);
-        _responseController.add(LarqResponse.hallEffectState(_hallEffectState!));
+        _responseController.add(
+          LarqResponse.hallEffectState(_hallEffectState!),
+        );
       }
     } catch (e, st) {
       print('[LARQ] Parse error type_url=$typeUrl: $e');
       print('[LARQ] Stack: $st');
-      _responseController.add(LarqResponse.error('Failed to parse response: $e'));
+      _responseController.add(
+        LarqResponse.error('Failed to parse response: $e'),
+      );
     }
   }
 
   // --- Public API methods ---
+
+  // Jump to newest entries using high fromTimestamp query.
+  // This causes the bottle to return entries in descending order.
+  Future<void> jumpToLatestTofLogs() async {
+    final nowUtc = DateTime.now().toUtc();
+    final ts = nowUtc.add(const Duration(days: 365));
+    final epochSec = ts.millisecondsSinceEpoch ~/ 1000;
+    print('[LARQ] jumpToLatest: nowUtc=$nowUtc, queryTS=$epochSec');
+    final q = encodeCapLogQuery(fromTimestamp: epochSec, limit: 255);
+    final req = encodeRequestGetCapTofLog(q);
+    await _sendRequest(CapBleRequestType.getCapTofLog, req);
+  }
 
   Future<void> getCapStateLog() async {
     final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
     final req = encodeRequestGetCapStateLog(q);
     await _sendRequest(CapBleRequestType.getCapStateLog, req);
   }
-  Future<void> getTofLog() async {
-    final query = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
-    final req = encodeRequestGetCapTofLog(query);
-    await _sendRequest(CapBleRequestType.getCapTofLog, req);
-  }
-  Future<void> getTofState() async => _sendRequest(CapBleRequestType.getCapTofState);
-  Future<void> getBottleSensorState() async => _sendRequest(CapBleRequestType.getCapBottleSensorState);
-  Future<void> getUiState() async => _sendRequest(CapBleRequestType.getCapUiState);
-  Future<void> getSipSensorState() async => _sendRequest(CapBleRequestType.getCapSipSensorState);
-  Future<void> getAccelerometerState() async => _sendRequest(CapBleRequestType.getCapAccelerometerState);
-  Future<void> getAmbientLightSensorState() async => _sendRequest(CapBleRequestType.getCapAmbientLightSensorState);
-  Future<void> getHallEffectSensorState() async => _sendRequest(CapBleRequestType.getCapHallEffectSensorState);
+
   Future<void> getActivationLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
+    final q = encodeCapLogQuery(
+      fromTimestamp: _initialQueryTimestamp,
+      limit: 255,
+    );
     final req = encodeRequestGetCapActivationLog(q);
     await _sendRequest(CapBleRequestType.getCapActivationLog, req);
   }
+
   Future<void> getFaultLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
+    final q = encodeCapLogQuery(
+      fromTimestamp: _initialQueryTimestamp,
+      limit: 255,
+    );
     final req = encodeRequestGetCapFaultLog(q);
     await _sendRequest(CapBleRequestType.getCapFaultLog, req);
   }
+
   Future<void> getChargingAdcLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
+    final q = encodeCapLogQuery(
+      fromTimestamp: _initialQueryTimestamp,
+      limit: 255,
+    );
     final req = encodeRequestGetChargingCapAdcLog(q);
     await _sendRequest(CapBleRequestType.getChargingCapAdcLog, req);
   }
+
   Future<void> getActivationAdcLog() async {
-    final q = encodeCapLogQuery(fromTimestamp: 0, limit: 255);
+    final q = encodeCapLogQuery(
+      fromTimestamp: _initialQueryTimestamp,
+      limit: 255,
+    );
     final req = encodeRequestGetActivationCapAdcLog(q);
     await _sendRequest(CapBleRequestType.getActivationCapAdcLog, req);
   }
 
+  Future<void> getTofLog() async {
+    final query = encodeCapLogQuery(
+      fromTimestamp: _initialQueryTimestamp,
+      limit: 255,
+    );
+    final req = encodeRequestGetCapTofLog(query);
+    await _sendRequest(CapBleRequestType.getCapTofLog, req);
+  }
+
+  // Use 7-day window — gives us recent entries, auto-paging loads the rest
+  static int get _initialQueryTimestamp {
+    final t = DateTime.now().toUtc().subtract(const Duration(days: 7));
+    return t.millisecondsSinceEpoch ~/ 1000;
+  }
+
+  Future<void> getTofState() async =>
+      _sendRequest(CapBleRequestType.getCapTofState);
+  Future<void> getBottleSensorState() async =>
+      _sendRequest(CapBleRequestType.getCapBottleSensorState);
+  Future<void> getUiState() async =>
+      _sendRequest(CapBleRequestType.getCapUiState);
+  Future<void> getSipSensorState() async =>
+      _sendRequest(CapBleRequestType.getCapSipSensorState);
+  Future<void> getAccelerometerState() async =>
+      _sendRequest(CapBleRequestType.getCapAccelerometerState);
+  Future<void> getAmbientLightSensorState() async =>
+      _sendRequest(CapBleRequestType.getCapAmbientLightSensorState);
+  Future<void> getHallEffectSensorState() async =>
+      _sendRequest(CapBleRequestType.getCapHallEffectSensorState);
+
   Future<void> startPurification() async {
-    final payload = encodeRequestSetCapUvActivate(CapEnumUvActivationMode.standard);
+    final payload = encodeRequestSetCapUvActivate(
+      CapEnumUvActivationMode.standard,
+    );
     await _sendRequest(CapBleRequestType.setCapUvActivate, payload);
   }
 
@@ -574,8 +744,10 @@ class LarqBleService {
     await _sendRequest(CapBleRequestType.setCapPowerSavingMode, payload);
   }
 
-  Future<void> factoryReset() async => _sendRequest(CapBleRequestType.factoryReset);
-  Future<void> enterDfuMode() async => _sendRequest(CapBleRequestType.enterDfuMode);
+  Future<void> factoryReset() async =>
+      _sendRequest(CapBleRequestType.factoryReset);
+  Future<void> enterDfuMode() async =>
+      _sendRequest(CapBleRequestType.enterDfuMode);
 
   Future<void> readBleBatteryLevel() async {
     if (_device == null) return;
@@ -610,53 +782,137 @@ class LarqBleService {
     await readBleBatteryLevel();
   }
 
-
-  void _mergeLogList<T extends dynamic>(List<T> existing, List<T> newEntries) {
+  int _mergeLogList<T extends dynamic>(List<T> existing, List<T> newEntries) {
+    int added = 0;
     for (final entry in newEntries) {
-      // Check for duplicate by timestamp (works for all log types)
       final newTs = (entry as dynamic).timestamp as int;
       final exists = existing.any((e) => (e as dynamic).timestamp == newTs);
-      if (!exists) existing.add(entry);
+      if (!exists) {
+        existing.add(entry);
+        added++;
+      }
     }
+    return added;
   }
 
   // --- Paginated loading ---
 
   Future<void> loadMoreTofLogs() async {
-    final fromTs = _tofLogs.isEmpty ? 0 : _tofLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final fromTs = _tofLogs.isEmpty
+        ? 0
+        : _tofLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
     final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetCapTofLog(q);
     await _sendRequest(CapBleRequestType.getCapTofLog, req);
   }
 
   Future<void> loadMoreActivationLogs() async {
-    final fromTs = _activationLogs.isEmpty ? 0 : _activationLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final fromTs = _activationLogs.isEmpty
+        ? 0
+        : _activationLogs
+                  .map((e) => e.timestamp)
+                  .reduce((a, b) => a > b ? a : b) +
+              1;
     final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetCapActivationLog(q);
     await _sendRequest(CapBleRequestType.getCapActivationLog, req);
   }
 
   Future<void> loadMoreFaultLogs() async {
-    final fromTs = _faultLogs.isEmpty ? 0 : _faultLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final fromTs = _faultLogs.isEmpty
+        ? 0
+        : _faultLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) +
+              1;
     final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetCapFaultLog(q);
     await _sendRequest(CapBleRequestType.getCapFaultLog, req);
   }
 
   Future<void> loadMoreActivationAdcLogs() async {
-    final fromTs = _activationAdcLogs.isEmpty ? 0 : _activationAdcLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final fromTs = _activationAdcLogs.isEmpty
+        ? 0
+        : _activationAdcLogs
+                  .map((e) => e.timestamp)
+                  .reduce((a, b) => a > b ? a : b) +
+              1;
     final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetActivationCapAdcLog(q);
     await _sendRequest(CapBleRequestType.getActivationCapAdcLog, req);
   }
 
   Future<void> loadMoreChargingAdcLogs() async {
-    final fromTs = _chargingAdcLogs.isEmpty ? 0 : _chargingAdcLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final fromTs = _chargingAdcLogs.isEmpty
+        ? 0
+        : _chargingAdcLogs
+                  .map((e) => e.timestamp)
+                  .reduce((a, b) => a > b ? a : b) +
+              1;
     final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 255);
     final req = encodeRequestGetChargingCapAdcLog(q);
     await _sendRequest(CapBleRequestType.getChargingCapAdcLog, req);
   }
 
+  // Auto-paging helpers: trigger another page if response was full
+  // Uses _added count to avoid re-triggering on duplicates
+  void _autoPageTofLogs() {
+    Future.microtask(() async {
+      try {
+        await loadMoreTofLogs();
+      } catch (e) {
+        print('[LARQ] autoPage tof failed: $e');
+      }
+    });
+  }
+
+  void _autoPageTofLogsHigh() {
+    Future.microtask(() async {
+      try {
+        await jumpToLatestTofLogs();
+      } catch (e) {
+        print('[LARQ] jumpToLatest failed: $e');
+      }
+    });
+  }
+
+  void _autoPageActivationLogs() {
+    Future.microtask(() async {
+      try {
+        await loadMoreActivationLogs();
+      } catch (e) {
+        print('[LARQ] autoPage activation failed: $e');
+      }
+    });
+  }
+
+  void _autoPageFaultLogs() {
+    Future.microtask(() async {
+      try {
+        await loadMoreFaultLogs();
+      } catch (e) {
+        print('[LARQ] autoPage fault failed: $e');
+      }
+    });
+  }
+
+  void _autoPageActivationAdcLogs() {
+    Future.microtask(() async {
+      try {
+        await loadMoreActivationAdcLogs();
+      } catch (e) {
+        print('[LARQ] autoPage act adc failed: $e');
+      }
+    });
+  }
+
+  void _autoPageChargingAdcLogs() {
+    Future.microtask(() async {
+      try {
+        await loadMoreChargingAdcLogs();
+      } catch (e) {
+        print('[LARQ] autoPage chg adc failed: $e');
+      }
+    });
+  }
 
   void resetState() {
     _stopPoll();
@@ -668,11 +924,18 @@ class LarqBleService {
     _hallEffectState = null;
     _uiState = CapEnumUiState.allOff;
     _powerSavingMode = CapPowerSavingMode.off;
+    _tofLogs = [];
     _activationLogs = [];
     _faultLogs = [];
     _activationAdcLogs = [];
     _chargingAdcLogs = [];
     _batteryCharacteristic = null;
+    _tofAutoPages = 0;
+    _actAutoPages = 0;
+    _faultAutoPages = 0;
+    _actAdcAutoPages = 0;
+    _chgAdcAutoPages = 0;
+    _jumpedToLatest = false;
   }
 
   void dispose() {
@@ -706,8 +969,13 @@ class LarqResponse {
       LarqResponse._(LarqResponseType.ambientLightState, state);
   factory LarqResponse.hallEffectState(CapHallEffectSensorState state) =>
       LarqResponse._(LarqResponseType.hallEffectState, state);
-  factory LarqResponse.uiState(CapEnumUiState state, CapPowerSavingMode powerSaving) =>
-      LarqResponse._(LarqResponseType.uiState, (state: state, powerSaving: powerSaving));
+  factory LarqResponse.uiState(
+    CapEnumUiState state,
+    CapPowerSavingMode powerSaving,
+  ) => LarqResponse._(LarqResponseType.uiState, (
+    state: state,
+    powerSaving: powerSaving,
+  ));
   factory LarqResponse.activationLog(List<CapActivationLog> logs) =>
       LarqResponse._(LarqResponseType.activationLog, logs);
   factory LarqResponse.faultLog(List<CapFaultLog> logs) =>
@@ -717,7 +985,15 @@ class LarqResponse {
 }
 
 enum LarqResponseType {
-  tofLog, tofState, bottleSensorState, sipSensorState,
-  accelerometerState, ambientLightState, hallEffectState,
-  uiState, activationLog, faultLog, error,
+  tofLog,
+  tofState,
+  bottleSensorState,
+  sipSensorState,
+  accelerometerState,
+  ambientLightState,
+  hallEffectState,
+  uiState,
+  activationLog,
+  faultLog,
+  error,
 }

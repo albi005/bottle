@@ -4,8 +4,7 @@
 // --- BLE Identifiers ---
 
 class LarqBleUuids {
-  static const String serviceUart =
-      '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  static const String serviceUart = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
   static const String charTx =
       '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // Notify (bottle→phone)
   static const String charRx =
@@ -15,14 +14,10 @@ class LarqBleUuids {
 
   static const String serviceDeviceInfo =
       '0000180a-0000-1000-8000-00805f9b34fb';
-  static const String serviceBattery =
-      '0000180f-0000-1000-8000-00805f9b34fb';
-  static const String charBatteryLevel =
-      '00002a19-0000-1000-8000-00805f9b34fb';
-  static const String charModelNumber =
-      '00002a24-0000-1000-8000-00805f9b34fb';
-  static const String charSerialNumber =
-      '00002a25-0000-1000-8000-00805f9b34fb';
+  static const String serviceBattery = '0000180f-0000-1000-8000-00805f9b34fb';
+  static const String charBatteryLevel = '00002a19-0000-1000-8000-00805f9b34fb';
+  static const String charModelNumber = '00002a24-0000-1000-8000-00805f9b34fb';
+  static const String charSerialNumber = '00002a25-0000-1000-8000-00805f9b34fb';
   static const String charFirmwareRevision =
       '00002a26-0000-1000-8000-00805f9b34fb';
   static const String charHardwareRevision =
@@ -30,10 +25,8 @@ class LarqBleUuids {
   static const String charSoftwareRevision =
       '00002a28-0000-1000-8000-00805f9b34fb';
 
-  static const String serviceDfu =
-      '0000FE59-0000-1000-8000-00805F9B34FB';
-  static const String charDfuControl =
-      '8EC90003-F315-4F60-9FB8-838830DAEA50';
+  static const String serviceDfu = '0000FE59-0000-1000-8000-00805F9B34FB';
+  static const String charDfuControl = '8EC90003-F315-4F60-9FB8-838830DAEA50';
 
   // The bottle advertises with the UART service UUID
   static List<String> get scanUuids => [serviceUart];
@@ -53,8 +46,10 @@ enum CapEnumResponseCode {
   const CapEnumResponseCode(this.value);
 
   static CapEnumResponseCode fromValue(int v) {
-    return CapEnumResponseCode.values
-        .firstWhere((e) => e.value == v, orElse: () => fail);
+    return CapEnumResponseCode.values.firstWhere(
+      (e) => e.value == v,
+      orElse: () => fail,
+    );
   }
 }
 
@@ -93,8 +88,10 @@ enum CapEnumUiState {
   const CapEnumUiState(this.value);
 
   static CapEnumUiState fromValue(int v) {
-    return CapEnumUiState.values
-        .firstWhere((e) => e.value == v, orElse: () => on);
+    return CapEnumUiState.values.firstWhere(
+      (e) => e.value == v,
+      orElse: () => on,
+    );
   }
 }
 
@@ -109,8 +106,10 @@ enum CapEnumTofTriggerType {
   const CapEnumTofTriggerType(this.value);
 
   static CapEnumTofTriggerType fromValue(int v) {
-    return CapEnumTofTriggerType.values
-        .firstWhere((e) => e.value == v, orElse: () => request);
+    return CapEnumTofTriggerType.values.firstWhere(
+      (e) => e.value == v,
+      orElse: () => request,
+    );
   }
 }
 
@@ -127,8 +126,10 @@ enum CapEnumFaultType {
   const CapEnumFaultType(this.value);
 
   static CapEnumFaultType fromValue(int v) {
-    return CapEnumFaultType.values
-        .firstWhere((e) => e.value == v, orElse: () => uvOvertemp);
+    return CapEnumFaultType.values.firstWhere(
+      (e) => e.value == v,
+      orElse: () => uvOvertemp,
+    );
   }
 }
 
@@ -159,8 +160,10 @@ enum CapPowerSavingMode {
   const CapPowerSavingMode(this.value);
 
   static CapPowerSavingMode fromValue(int v) {
-    return CapPowerSavingMode.values
-        .firstWhere((e) => e.value == v, orElse: () => off);
+    return CapPowerSavingMode.values.firstWhere(
+      (e) => e.value == v,
+      orElse: () => off,
+    );
   }
 }
 
@@ -189,10 +192,7 @@ class CapTofState {
   final int distanceInMillimeter;
   final int kcps;
 
-  const CapTofState({
-    required this.distanceInMillimeter,
-    required this.kcps,
-  });
+  const CapTofState({required this.distanceInMillimeter, required this.kcps});
 }
 
 class CapBottleSensorState {
@@ -367,14 +367,11 @@ enum CapBleRequestType {
 const Map<CapBleRequestType, String> requestTypeUrls = {
   CapBleRequestType.getCapBottleSensorState:
       'type.googleapis.com/RequestGetCapBottleSensorState',
-  CapBleRequestType.getCapUvConfig:
-      'type.googleapis.com/RequestGetCapUvConfig',
-  CapBleRequestType.getCapTofLog:
-      'type.googleapis.com/RequestGetCapTofLog',
+  CapBleRequestType.getCapUvConfig: 'type.googleapis.com/RequestGetCapUvConfig',
+  CapBleRequestType.getCapTofLog: 'type.googleapis.com/RequestGetCapTofLog',
   CapBleRequestType.getCapTofSettings:
       'type.googleapis.com/RequestGetCapTofSettings',
-  CapBleRequestType.getCapTofState:
-      'type.googleapis.com/RequestGetCapTofState',
+  CapBleRequestType.getCapTofState: 'type.googleapis.com/RequestGetCapTofState',
   CapBleRequestType.getCapTimeSettings:
       'type.googleapis.com/RequestGetCapTimeSettings',
   CapBleRequestType.getCapLowBatterySettings:
@@ -397,22 +394,18 @@ const Map<CapBleRequestType, String> requestTypeUrls = {
       'type.googleapis.com/RequestGetCapHallEffectSensorState',
   CapBleRequestType.getCapSipSensorState:
       'type.googleapis.com/RequestGetCapSipSensorState',
-  CapBleRequestType.getCapFaultLog:
-      'type.googleapis.com/RequestGetCapFaultLog',
-  CapBleRequestType.getCapStateLog:
-      'type.googleapis.com/RequestGetCapStateLog',
+  CapBleRequestType.getCapFaultLog: 'type.googleapis.com/RequestGetCapFaultLog',
+  CapBleRequestType.getCapStateLog: 'type.googleapis.com/RequestGetCapStateLog',
   CapBleRequestType.getCapActivationLog:
       'type.googleapis.com/RequestGetCapActivationLog',
   CapBleRequestType.getActivationCapAdcLog:
       'type.googleapis.com/RequestGetActivationCapAdcLog',
   CapBleRequestType.getChargingCapAdcLog:
       'type.googleapis.com/RequestGetChargingCapAdcLog',
-  CapBleRequestType.getCapUiState:
-      'type.googleapis.com/RequestGetCapUiState',
+  CapBleRequestType.getCapUiState: 'type.googleapis.com/RequestGetCapUiState',
   CapBleRequestType.setCapBottleSensorState:
       'type.googleapis.com/RequestSetCapBottleSensorState',
-  CapBleRequestType.setCapUvConfig:
-      'type.googleapis.com/RequestSetCapUvConfig',
+  CapBleRequestType.setCapUvConfig: 'type.googleapis.com/RequestSetCapUvConfig',
   CapBleRequestType.setCapUvActivate:
       'type.googleapis.com/RequestSetCapUvActivate',
   CapBleRequestType.setCapTofSettings:
@@ -433,12 +426,10 @@ const Map<CapBleRequestType, String> requestTypeUrls = {
       'type.googleapis.com/RequestSetCapStateThresholdSettings',
   CapBleRequestType.setCapPowerSavingMode:
       'type.googleapis.com/RequestSetCapPowerSavingMode',
-  CapBleRequestType.enterDfuMode:
-      'type.googleapis.com/RequestCapEnterDfuMode',
+  CapBleRequestType.enterDfuMode: 'type.googleapis.com/RequestCapEnterDfuMode',
   CapBleRequestType.enterLowBatteryMode:
       'type.googleapis.com/RequestCapEnterLowBatteryMode',
-  CapBleRequestType.factoryReset:
-      'type.googleapis.com/RequestCapFactoryReset',
+  CapBleRequestType.factoryReset: 'type.googleapis.com/RequestCapFactoryReset',
   CapBleRequestType.startCapCalibration:
       'type.googleapis.com/RequestCapStartCapCalibration',
   CapBleRequestType.stopCapCalibration:

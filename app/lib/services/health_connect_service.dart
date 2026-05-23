@@ -57,8 +57,10 @@ class HealthConnectService {
           prev.distanceInMillimeter > 0 &&
           curr.timestamp - prev.timestamp < 30) {
         // Water level dropped = distance increased
-        final deltaMm =
-            max(curr.distanceInMillimeter - prev.distanceInMillimeter, 0);
+        final deltaMm = max(
+          curr.distanceInMillimeter - prev.distanceInMillimeter,
+          0,
+        );
         // Sanity check: a reasonable sip is 10-100ml (3-26mm drop)
         if (deltaMm > 0 && deltaMm < 50) {
           totalMl += deltaMm * _bottleCrossSectionMm2 * _mm3toMl;
@@ -73,14 +75,9 @@ class HealthConnectService {
   Future<bool> authorize() async {
     if (!_isSupported || _health == null) return false;
     try {
-      final types = [
-        HealthDataType.WATER,
-      ];
+      final types = [HealthDataType.WATER];
 
-      final permissions = [
-        HealthDataAccess.READ,
-        HealthDataAccess.WRITE,
-      ];
+      final permissions = [HealthDataAccess.READ, HealthDataAccess.WRITE];
 
       _authorized = await _health!.requestAuthorization(
         types,
@@ -111,9 +108,7 @@ class HealthConnectService {
     if (_syncedTimestamps.contains(hash)) return 0;
 
     // Use the latest log's timestamp as the event time
-    final lastDt = sorted.isNotEmpty
-        ? sorted.last.dateTime
-        : DateTime.now();
+    final lastDt = sorted.isNotEmpty ? sorted.last.dateTime : DateTime.now();
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     if (lastDt.isBefore(startOfDay)) return 0;
