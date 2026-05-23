@@ -125,5 +125,6 @@ tmp/
 .devenv/
 devenv.lock
 .direnvlocal.properties
+local.properties
 .android/
 .devenv.flake.nix

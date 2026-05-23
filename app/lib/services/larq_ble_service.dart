@@ -448,14 +448,17 @@ class LarqBleService {
       final short = typeUrl.replaceFirst(RegExp(r'^.*/'), '');
       if (short == 'ResponseGetCapTofLog') {
         print('[LARQ] ToF log body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
-        _tofLogs = decodeResponseGetCapTofLog(body);
-        print('[LARQ] ToF log entries: ${_tofLogs.length}');
+        final newEntries = decodeResponseGetCapTofLog(body);
+        print('[LARQ] ToF log entries: ${newEntries.length}');
+        _mergeLogList(_tofLogs, newEntries);
+        _tofLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         _responseController.add(LarqResponse.tofLog(_tofLogs));
       } else if (short == 'ResponseGetCapStateLog') {
         print('[LARQ] StateLog body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
-        // Try parsing as ToF log (may share the same format)
-        _tofLogs = decodeResponseGetCapTofLog(body);
-        print('[LARQ] StateLog as ToF: ${_tofLogs.length} entries');
+        final newEntries = decodeResponseGetCapTofLog(body);
+        print('[LARQ] StateLog as ToF: ${newEntries.length} entries');
+        _mergeLogList(_tofLogs, newEntries);
+        _tofLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         _responseController.add(LarqResponse.tofLog(_tofLogs));
       } else if (short == 'ResponseGetCapTofState') {
         _tofState = decodeResponseGetCapTofState(body);
@@ -476,8 +479,10 @@ class LarqBleService {
         _responseController.add(LarqResponse.uiState(result.state, result.powerSavingMode));
       } else if (short == 'ResponseGetCapActivationLog') {
         print('[LARQ] Activation log body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
-        _activationLogs = decodeResponseGetCapActivationLog(body);
-        print('[LARQ] Activation log entries: ${_activationLogs.length}');
+        final newEntries = decodeResponseGetCapActivationLog(body);
+        print('[LARQ] Activation log entries: ${newEntries.length}');
+        _mergeLogList(_activationLogs, newEntries);
+        _activationLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         if (_activationLogs.isNotEmpty) {
           _batteryLevel = _activationLogs.last.batterySocInPercentage;
           print('[LARQ] Battery from activation log: $_batteryLevel%');
@@ -485,21 +490,19 @@ class LarqBleService {
         _responseController.add(LarqResponse.activationLog(_activationLogs));
       } else if (short == 'ResponseGetActivationCapAdcLog') {
         print('[LARQ] Act ADC body hex: ${body.map((b) => b.toRadixString(16).padLeft(2, '0')).join()} (${body.length}B)');
-        _activationAdcLogs = decodeResponseGetActivationCapAdcLog(body);
-        print('[LARQ] Act ADC log entries: ${_activationAdcLogs.length}');
-        if (_activationAdcLogs.isNotEmpty) {
-          _batteryLevel = _activationAdcLogs.last.batterySocInPercentage;
-          print('[LARQ] Battery from activation ADC log: $_batteryLevel%');
-        }
+        final newEntries = decodeResponseGetActivationCapAdcLog(body);
+        print('[LARQ] Act ADC log entries: ${newEntries.length}');
+        _mergeLogList(_activationAdcLogs, newEntries);
+        _activationAdcLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
       } else if (short == 'ResponseGetChargingCapAdcLog') {
-        _chargingAdcLogs = decodeResponseGetChargingCapAdcLog(body);
+        final newEntries = decodeResponseGetChargingCapAdcLog(body);
+        _mergeLogList(_chargingAdcLogs, newEntries);
+        _chargingAdcLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         print('[LARQ] Chg ADC log entries: ${_chargingAdcLogs.length}');
-        if (_chargingAdcLogs.isNotEmpty) {
-          _batteryLevel = _chargingAdcLogs.last.batterySocInPercentage;
-          print('[LARQ] Battery from charging ADC log: $_batteryLevel%');
-        }
       } else if (short == 'ResponseGetCapFaultLog') {
-        _faultLogs = decodeResponseGetCapFaultLog(body);
+        final newEntries = decodeResponseGetCapFaultLog(body);
+        _mergeLogList(_faultLogs, newEntries);
+        _faultLogs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         print('[LARQ] Fault log entries: ${_faultLogs.length}');
         _responseController.add(LarqResponse.faultLog(_faultLogs));
       } else if (short == 'ResponseGetCapAmbientLightSensorState') {
@@ -605,6 +608,53 @@ class LarqBleService {
     await getActivationAdcLog();
     await getChargingAdcLog();
     await readBleBatteryLevel();
+  }
+
+
+  void _mergeLogList<T extends dynamic>(List<T> existing, List<T> newEntries) {
+    for (final entry in newEntries) {
+      // Check for duplicate by timestamp (works for all log types)
+      final newTs = (entry as dynamic).timestamp as int;
+      final exists = existing.any((e) => (e as dynamic).timestamp == newTs);
+      if (!exists) existing.add(entry);
+    }
+  }
+
+  // --- Paginated loading ---
+
+  Future<void> loadMoreTofLogs() async {
+    final fromTs = _tofLogs.isEmpty ? 0 : _tofLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final req = encodeRequestGetCapTofLog(q);
+    await _sendRequest(CapBleRequestType.getCapTofLog, req);
+  }
+
+  Future<void> loadMoreActivationLogs() async {
+    final fromTs = _activationLogs.isEmpty ? 0 : _activationLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final req = encodeRequestGetCapActivationLog(q);
+    await _sendRequest(CapBleRequestType.getCapActivationLog, req);
+  }
+
+  Future<void> loadMoreFaultLogs() async {
+    final fromTs = _faultLogs.isEmpty ? 0 : _faultLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final req = encodeRequestGetCapFaultLog(q);
+    await _sendRequest(CapBleRequestType.getCapFaultLog, req);
+  }
+
+  Future<void> loadMoreActivationAdcLogs() async {
+    final fromTs = _activationAdcLogs.isEmpty ? 0 : _activationAdcLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final req = encodeRequestGetActivationCapAdcLog(q);
+    await _sendRequest(CapBleRequestType.getActivationCapAdcLog, req);
+  }
+
+  Future<void> loadMoreChargingAdcLogs() async {
+    final fromTs = _chargingAdcLogs.isEmpty ? 0 : _chargingAdcLogs.map((e) => e.timestamp).reduce((a, b) => a > b ? a : b) + 1;
+    final q = encodeCapLogQuery(fromTimestamp: fromTs, limit: 50);
+    final req = encodeRequestGetChargingCapAdcLog(q);
+    await _sendRequest(CapBleRequestType.getChargingCapAdcLog, req);
   }
 
 

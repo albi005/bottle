@@ -264,13 +264,21 @@ class CapUvConfig {
 
 class CapAdcLog {
   final int timestamp;
-  final double batteryVoltage;
-  final int batterySocInPercentage;
+  final double batteryInVolt;
+  final double batteryTempInOhm;
+  final double uvLedInVolt;
+  final double uvLedCurrentInMilliamps;
+  final double uvLedTempInOhm;
+  final double cPcbTempInOhm;
 
   const CapAdcLog({
     required this.timestamp,
-    required this.batteryVoltage,
-    required this.batterySocInPercentage,
+    required this.batteryInVolt,
+    required this.batteryTempInOhm,
+    required this.uvLedInVolt,
+    required this.uvLedCurrentInMilliamps,
+    required this.uvLedTempInOhm,
+    required this.cPcbTempInOhm,
   });
 }
 

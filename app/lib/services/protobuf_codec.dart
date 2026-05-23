@@ -445,7 +445,8 @@ List<CapFaultLog> decodeResponseGetCapFaultLog(Uint8List data) {
   return items;
 }
 
-// CapAdcLog: uint64 timestamp=1; float batteryVoltage=2; fixed32 batterySocInPercentage=3;
+// CapAdcLog: uint64 timestamp=1; float batteryInVolt=2; float batteryTempInOhm=3;
+//   float uvLedInVolt=4; float uvLedCurrentInMilliamps=5; float uvLedTempInOhm=6; float cPcbTempInOhm=7;
 List<CapAdcLog> _decodeCapAdcLogList(Uint8List data) {
   final r = _PbReader(data);
   final items = <CapAdcLog>[];
@@ -455,22 +456,30 @@ List<CapAdcLog> _decodeCapAdcLogList(Uint8List data) {
     if (f.fieldNumber == 1) {
       final inner = _PbReader(r.readMessage());
       int ts = 0;
-      double v = 0;
-      int soc = 0;
+      double batteryInVolt = 0, batteryTempInOhm = 0, uvLedInVolt = 0;
+      double uvLedCurrent = 0, uvLedTemp = 0, cPcbTemp = 0;
       while (!inner.isDone) {
         final fi = inner.readField();
         if (fi.wireType < 0) break;
         switch (fi.fieldNumber) {
           case 1: ts = inner.readUint64(); break;
-          case 2: v = inner.readFloat(); break;
-          case 3: soc = inner.readFixed32(); break;
+          case 2: batteryInVolt = inner.readFloat(); break;
+          case 3: batteryTempInOhm = inner.readFloat(); break;
+          case 4: uvLedInVolt = inner.readFloat(); break;
+          case 5: uvLedCurrent = inner.readFloat(); break;
+          case 6: uvLedTemp = inner.readFloat(); break;
+          case 7: cPcbTemp = inner.readFloat(); break;
           default: inner.skipField(fi.wireType);
         }
       }
       items.add(CapAdcLog(
         timestamp: ts,
-        batteryVoltage: v,
-        batterySocInPercentage: soc,
+        batteryInVolt: batteryInVolt,
+        batteryTempInOhm: batteryTempInOhm,
+        uvLedInVolt: uvLedInVolt,
+        uvLedCurrentInMilliamps: uvLedCurrent,
+        uvLedTempInOhm: uvLedTemp,
+        cPcbTempInOhm: cPcbTemp,
       ));
     } else { r.skipField(f.wireType); }
   }

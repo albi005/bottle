@@ -115,16 +115,18 @@ class _DeviceScreenState extends State<DeviceScreen> {
           const SizedBox(height: 8),
           _SensorsCard(ble: ble, fetchingItem: _pollingItem),
           const SizedBox(height: 8),
-          _TofLogsCard(logs: ble.tofLogs),
+          _TofLogsCard(logs: ble.tofLogs, onLoadMore: ble.loadMoreTofLogs),
           const SizedBox(height: 8),
-          _ActivationLogsCard(logs: ble.activationLogs),
+          _ActivationLogsCard(logs: ble.activationLogs, onLoadMore: ble.loadMoreActivationLogs),
           const SizedBox(height: 8),
           _AdcLogsCard(
             actLogs: ble.activationAdcLogs,
             chgLogs: ble.chargingAdcLogs,
+            onLoadMoreAct: ble.loadMoreActivationAdcLogs,
+            onLoadMoreChg: ble.loadMoreChargingAdcLogs,
           ),
           const SizedBox(height: 8),
-          _FaultLogsCard(logs: ble.faultLogs),
+          _FaultLogsCard(logs: ble.faultLogs, onLoadMore: ble.loadMoreFaultLogs),
           const SizedBox(height: 8),
           _ControlsCard(
             ble: ble,
@@ -512,13 +514,32 @@ class _SensorRow extends StatelessWidget {
   }
 }
 
-class _TofLogsCard extends StatelessWidget {
+class _TofLogsCard extends StatefulWidget {
   final List<CapTofLog> logs;
+  final Future<void> Function()? onLoadMore;
 
-  const _TofLogsCard({required this.logs});
+  const _TofLogsCard({required this.logs, this.onLoadMore});
+
+  @override
+  State<_TofLogsCard> createState() => _TofLogsCardState();
+}
+
+class _TofLogsCardState extends State<_TofLogsCard> {
+  bool _loading = false;
+
+  Future<void> _loadMore() async {
+    if (_loading || widget.onLoadMore == null) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onLoadMore!();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final logs = widget.logs;
     return Card(
       child: ExpansionTile(
         title: Text('ToF Logs (${logs.length})'),
@@ -536,62 +557,81 @@ class _TofLogsCard extends StatelessWidget {
         childrenPadding: const EdgeInsets.symmetric(
           horizontal: 16,
         ).copyWith(bottom: 12),
-        children: logs.isEmpty
-            ? [
-                const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'No ToF logs yet',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+        children: [
+          if (logs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                'No ToF logs yet',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            )
+          else ...[
+            ...logs.reversed.take(50).map((log) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 58,
+                      child: Text(
+                        DateFormat.Hm().format(log.dateTime),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _triggerColor(log.triggerType),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _triggerLabel(log.triggerType),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Text(
+                      '${log.distanceInMillimeter}mm',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${log.kcps}kcps',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            if (widget.onLoadMore != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _loading ? null : _loadMore,
+                    child: _loading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Load older entries'),
                   ),
                 ),
-              ]
-            : logs.reversed.take(50).map((log) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 58,
-                        child: Text(
-                          DateFormat.Hm().format(log.dateTime),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _triggerColor(log.triggerType),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          _triggerLabel(log.triggerType),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      Text(
-                        '${log.distanceInMillimeter}mm',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${log.kcps}kcps',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+              ),
+          ],
+        ],
       ),
     );
   }
@@ -603,13 +643,32 @@ Color _uvColor(CapEnumUvActivationMode mode) => switch (mode) {
   _ => Colors.grey,
 };
 
-class _ActivationLogsCard extends StatelessWidget {
+class _ActivationLogsCard extends StatefulWidget {
   final List<CapActivationLog> logs;
+  final Future<void> Function()? onLoadMore;
 
-  const _ActivationLogsCard({required this.logs});
+  const _ActivationLogsCard({required this.logs, this.onLoadMore});
+
+  @override
+  State<_ActivationLogsCard> createState() => _ActivationLogsCardState();
+}
+
+class _ActivationLogsCardState extends State<_ActivationLogsCard> {
+  bool _loading = false;
+
+  Future<void> _loadMore() async {
+    if (_loading || widget.onLoadMore == null) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onLoadMore!();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final logs = widget.logs;
     return Card(
       child: ExpansionTile(
         title: Text('UV Activations (${logs.length})'),
@@ -626,67 +685,112 @@ class _ActivationLogsCard extends StatelessWidget {
         childrenPadding: const EdgeInsets.symmetric(
           horizontal: 16,
         ).copyWith(bottom: 12),
-        children: logs.isEmpty
-            ? [
-                const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'No UV activations yet',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+        children: [
+          if (logs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                'No UV activations yet',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            )
+          else ...[
+            ...logs.reversed.take(30).map((log) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 58,
+                      child: Text(
+                        DateFormat.Hm().format(log.dateTime),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _uvColor(log.mode),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _uvModeLabel(log.mode),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Text(
+                      '${log.batterySocInPercentage}%',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            if (widget.onLoadMore != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _loading ? null : _loadMore,
+                    child: _loading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Load older entries'),
                   ),
                 ),
-              ]
-            : logs.reversed.take(30).map((log) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 58,
-                        child: Text(
-                          DateFormat.Hm().format(log.dateTime),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _uvColor(log.mode),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          _uvModeLabel(log.mode),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      Text(
-                        '${log.batterySocInPercentage}%',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+              ),
+          ],
+        ],
       ),
     );
   }
 }
 
-class _AdcLogsCard extends StatelessWidget {
+class _AdcLogsCard extends StatefulWidget {
   final List<CapAdcLog> actLogs;
   final List<CapAdcLog> chgLogs;
+  final Future<void> Function()? onLoadMoreAct;
+  final Future<void> Function()? onLoadMoreChg;
 
-  const _AdcLogsCard({required this.actLogs, required this.chgLogs});
+  const _AdcLogsCard({
+    required this.actLogs,
+    required this.chgLogs,
+    this.onLoadMoreAct,
+    this.onLoadMoreChg,
+  });
+
+  @override
+  State<_AdcLogsCard> createState() => _AdcLogsCardState();
+}
+
+class _AdcLogsCardState extends State<_AdcLogsCard> {
+  bool _loading = false;
+
+  Future<void> _loadMore(Future<void> Function()? fn) async {
+    if (_loading || fn == null) return;
+    setState(() => _loading = true);
+    try {
+      await fn();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final actLogs = widget.actLogs;
+    final chgLogs = widget.chgLogs;
     final total = actLogs.length + chgLogs.length;
 
     return Card(
@@ -702,127 +806,168 @@ class _AdcLogsCard extends StatelessWidget {
         childrenPadding: const EdgeInsets.symmetric(
           horizontal: 16,
         ).copyWith(bottom: 12),
-        children: total == 0
-            ? [
-                const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'No ADC logs',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+        children: [
+          if (total == 0)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                'No ADC logs',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            )
+          else ...[
+            if (actLogs.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'Activation ADC (${actLogs.length})',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ]
-            : [
-                if (actLogs.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      'Activation ADC (${actLogs.length})',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w600,
+              ),
+              ...actLogs.reversed.take(20).map((log) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 58,
+                        child: Text(
+                          DateFormat.Hm().format(
+                            DateTime.fromMillisecondsSinceEpoch(
+                              log.timestamp * 1000,
+                            ),
+                          ),
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
+                      Expanded(
+                        child: Text(
+                          'BAT ${log.batteryInVolt.toStringAsFixed(2)}V  '
+                          'UV ${log.uvLedCurrentInMilliamps.toStringAsFixed(1)}mA',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              if (widget.onLoadMoreAct != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _loading ? null : () => _loadMore(widget.onLoadMoreAct),
+                      child: _loading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Load older activation ADC'),
                     ),
                   ),
-                  ...actLogs.reversed.take(20).map((log) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 58,
-                            child: Text(
-                              DateFormat.Hm().format(
-                                DateTime.fromMillisecondsSinceEpoch(
-                                  log.timestamp * 1000,
-                                ),
-                              ),
-                              style: const TextStyle(fontSize: 12),
+                ),
+            ],
+            if (actLogs.isNotEmpty && chgLogs.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              const Divider(height: 1),
+              const SizedBox(height: 4),
+            ],
+            if (chgLogs.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'Charging ADC (${chgLogs.length})',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              ...chgLogs.reversed.take(20).map((log) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 58,
+                        child: Text(
+                          DateFormat.Hm().format(
+                            DateTime.fromMillisecondsSinceEpoch(
+                              log.timestamp * 1000,
                             ),
                           ),
-                          Expanded(
-                            child: Text(
-                              '${log.batteryVoltage.toStringAsFixed(2)}V',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                          Text(
-                            '${log.batterySocInPercentage}%',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
-                    );
-                  }),
-                ],
-                if (actLogs.isNotEmpty && chgLogs.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  const Divider(height: 1),
-                  const SizedBox(height: 4),
-                ],
-                if (chgLogs.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      'Charging ADC (${chgLogs.length})',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          'BAT ${log.batteryInVolt.toStringAsFixed(2)}V  '
+                          'UV ${log.uvLedCurrentInMilliamps.toStringAsFixed(1)}mA',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
+                    ],
+                  ),
+                );
+              }),
+              if (widget.onLoadMoreChg != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _loading ? null : () => _loadMore(widget.onLoadMoreChg),
+                      child: _loading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Load older charging ADC'),
                     ),
                   ),
-                  ...chgLogs.reversed.take(20).map((log) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 58,
-                            child: Text(
-                              DateFormat.Hm().format(
-                                DateTime.fromMillisecondsSinceEpoch(
-                                  log.timestamp * 1000,
-                                ),
-                              ),
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              '${log.batteryVoltage.toStringAsFixed(2)}V',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                          Text(
-                            '${log.batterySocInPercentage}%',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              ],
+                ),
+            ],
+          ],
+        ],
       ),
     );
   }
 }
 
-class _FaultLogsCard extends StatelessWidget {
+class _FaultLogsCard extends StatefulWidget {
   final List<CapFaultLog> logs;
+  final Future<void> Function()? onLoadMore;
 
-  const _FaultLogsCard({required this.logs});
+  const _FaultLogsCard({required this.logs, this.onLoadMore});
+
+  @override
+  State<_FaultLogsCard> createState() => _FaultLogsCardState();
+}
+
+class _FaultLogsCardState extends State<_FaultLogsCard> {
+  bool _loading = false;
+
+  Future<void> _loadMore() async {
+    if (_loading || widget.onLoadMore == null) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onLoadMore!();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final logs = widget.logs;
     return Card(
       child: ExpansionTile(
         title: Text('Fault Logs (${logs.length})'),
@@ -839,36 +984,55 @@ class _FaultLogsCard extends StatelessWidget {
         childrenPadding: const EdgeInsets.symmetric(
           horizontal: 16,
         ).copyWith(bottom: 12),
-        children: logs.isEmpty
-            ? [
-                const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'No faults detected',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+        children: [
+          if (logs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                'No faults detected',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            )
+          else ...[
+            ...logs.reversed.take(20).map((log) {
+              return ListTile(
+                dense: true,
+                leading: const Icon(
+                  Icons.warning_amber,
+                  color: Colors.red,
+                  size: 20,
+                ),
+                title: Text(
+                  DateFormat('yyyy-MM-dd HH:mm:ss').format(
+                    DateTime.fromMillisecondsSinceEpoch(log.timestamp * 1000),
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                subtitle: Text(
+                  _faultTypeLabel(log.type),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              );
+            }),
+            if (widget.onLoadMore != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _loading ? null : _loadMore,
+                    child: _loading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Load older entries'),
                   ),
                 ),
-              ]
-            : logs.reversed.take(20).map((log) {
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(
-                    Icons.warning_amber,
-                    color: Colors.red,
-                    size: 20,
-                  ),
-                  title: Text(
-                    DateFormat('yyyy-MM-dd HH:mm:ss').format(
-                      DateTime.fromMillisecondsSinceEpoch(log.timestamp * 1000),
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  subtitle: Text(
-                    _faultTypeLabel(log.type),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                );
-              }).toList(),
+              ),
+          ],
+        ],
       ),
     );
   }
