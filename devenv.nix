@@ -16,7 +16,7 @@
     pkgs.curl
   ];
 
-  env.FLUTTER_SDK = config.env.FLUTTER_ROOT;
+  env.FLUTTER_SDK = "${pkgs.flutter}";
 
   enterShell = ''
     echo "Flutter Android development environment"
