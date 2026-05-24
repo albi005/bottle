@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import '../models/larq_protocol.dart';
 import '../services/larq_ble_service.dart';
+import '../services/bottle_session.dart';
 import 'device_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -24,11 +24,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   StreamSubscription? _scanResultsSub;
   bool _mounted = true;
 
-  ScanResult? _bottleResult;
-  bool _connecting = false;
-  String _connError = '';
-
-  StreamSubscription? _responseSub;
+  final Map<String, BottleSession> _sessions = {};
+  final Map<String, ScanResult> _latestScan = {};
+  final Set<String> _connectingIds = {};
 
   static const _scanDuration = Duration(seconds: 25);
   static const _scanRestartDelay = Duration(seconds: 3);
@@ -36,20 +34,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    _responseSub = widget.bleService.responseStream.listen((_) {
-      if (_mounted && mounted) setState(() {});
-    });
-
-    widget.bleService.connectionStream.listen((connected) {
-      if (!_mounted) return;
-      if (!connected && !_connecting && !widget.bleService.isConnected) {
-        print('[HOME] connection dropped, restarting scan');
-        if (mounted) setState(() {});
-        _startScanning();
-      }
-    });
-
     WidgetsBinding.instance.addObserver(this);
+    // Recover stale connections in parallel with scanning.
+    // If recovery succeeds at reconnecting, scan will just see
+    // the bottle as already connected and skip it.
+    // widget.bleService.recoverStaleConnections();
     _startScanning();
   }
 
@@ -57,17 +46,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     print('[HOME] lifecycle: $state');
     if (state == AppLifecycleState.detached) {
-      print('[HOME] app detached, starting disconnect...');
-      // Fire-and-forget: the process may exit before this completes,
-      // but we must try so the bottle gets a clean BLE disconnection.
-      widget.bleService
-          .disconnect(intentional: true)
-          .then((_) {
-            print('[HOME] disconnect completed before exit');
-          })
-          .catchError((e) {
-            print('[HOME] disconnect error: $e');
-          });
+      print('[HOME] app detached, disconnecting all sessions...');
+      widget.bleService.disconnectAll().then((_) {
+        print('[HOME] all sessions disconnected');
+      }).catchError((e) {
+        print('[HOME] disconnect error: $e');
+      });
     }
   }
 
@@ -77,13 +61,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _stopScan();
     _scanRefreshTimer?.cancel();
-    _responseSub?.cancel();
-    // Attempt clean BLE disconnect on dispose, even though the process
-    // may be killed before it completes. The WidgetsBindingObserver.detached
-    // callback is more reliable, but on Linux it may not fire.
-    if (widget.bleService.isConnected) {
-      print('[HOME] dispose, attempting disconnect');
-      widget.bleService.disconnect(intentional: true);
+    if (_sessions.isNotEmpty) {
+      print('[HOME] dispose, disconnecting all sessions');
+      widget.bleService.disconnectAll();
     }
     super.dispose();
   }
@@ -106,54 +86,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     _scanResultsSub = widget.bleService
         .scanForDevices(timeout: _scanDuration)
-        .listen((results) {
-          if (!_mounted || !_scanning) return;
+        .listen(_onScanResults);
 
-          _scanDevicesSeen = results.length;
-
-          final bottle = results.cast<ScanResult?>().firstWhere(
-            (r) => _isBottle(r!),
-            orElse: () => null,
-          );
-
-          if (bottle != null &&
-              _bottleResult?.device.remoteId != bottle.device.remoteId) {
-            _bottleResult = bottle;
-            print(
-              '[HOME] bottle seen: ${_bottleResult!.device.remoteId} rssi=${_bottleResult!.rssi}',
-            );
-            if (mounted) setState(() {});
-
-            // Skip RSSI 0 (BlueZ cached/ghost entries) — wait for a real signal
-            if (bottle.rssi == 0) {
-              print('[HOME]   rssi=0, ignoring (ghost entry)');
-            } else if (!_connecting && !widget.bleService.isConnected) {
-              _connectToBottle(bottle);
-            }
-          } else if (bottle != null) {
-            _bottleResult = bottle;
-            if (mounted) setState(() {});
-          }
-        });
-
-    _scanTimeoutTimer = Timer(_scanDuration + const Duration(seconds: 1), () {
-      if (!_mounted || !_scanning) return;
-      _scanning = false;
-      _scanResultsSub?.cancel();
-      _scanRefreshTimer?.cancel();
-      print(
-        '[HOME] scan timeout, restarting in ${_scanRestartDelay.inSeconds}s',
-      );
-      if (mounted) setState(() {});
-
-      _scanRestartTimer = Timer(_scanRestartDelay, () {
-        if (!_mounted) return;
-        if (!widget.bleService.isConnected && !_connecting) {
-          _bottleResult = null;
-        }
-        _startScanning();
-      });
-    });
   }
 
   void _stopScan() {
@@ -168,6 +102,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  void _onScanResults(List<ScanResult> results) {
+    if (!_mounted || !_scanning) return;
+    _scanDevicesSeen = results.length;
+
+    for (final r in results) {
+      if (!_isBottle(r)) continue;
+      final remoteId = r.device.remoteId.toString();
+
+      // Update latest scan info for display
+      _latestScan[remoteId] = r;
+
+      // RSSI 0 = ghost entry — disconnect + remove bond
+      if (r.rssi == 0) {
+        print('[HOME]   rssi=0 ghost: ${r.device.advName} ($remoteId) — disconnecting via FBP...');
+        widget.bleService.disconnectGhost(r.device);
+        continue;
+      }
+
+      // Already connected (managed session) — nothing to do
+      if (_sessions.containsKey(remoteId) && _sessions[remoteId]!.isConnected) {
+        continue;
+      }
+
+      // Auto-connect (non-blocking — scan continues while connecting)
+      _connectToBottle(r);
+    }
+
+    if (mounted) setState(() {});
+  }
+
   bool _isBottle(ScanResult result) {
     final name = result.device.advName.isNotEmpty
         ? result.device.advName
@@ -176,42 +140,55 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _connectToBottle(ScanResult bottle) async {
-    if (_connecting || widget.bleService.isConnected) return;
-    print('[HOME] _connectToBottle');
-    _connecting = true;
-    _connError = '';
-    _bottleResult = bottle;
-    _stopScan();
+    final remoteId = bottle.device.remoteId.toString();
+    if (_sessions.containsKey(remoteId) || _connectingIds.contains(remoteId)) {
+      return;
+    }
+
+    print('[HOME] _connectToBottle: ${bottle.device.advName} ($remoteId)');
+    _connectingIds.add(remoteId);
     if (mounted) setState(() {});
 
-    await Future.delayed(const Duration(seconds: 2));
-
-    print('[HOME] calling connectWithResult...');
-    final result = await widget.bleService.connectWithResult(bottle.device);
-    print(
-      '[HOME] connectWithResult success=${result.success} error=${result.error}',
-    );
+    final result = await widget.bleService.connectToBottle(bottle.device);
+    _connectingIds.remove(remoteId);
 
     if (!_mounted) return;
-    _connecting = false;
 
     if (result.success) {
-      if (mounted) setState(() {});
+      final session = widget.bleService.getSession(remoteId);
+      if (session != null) {
+        _sessions[remoteId] = session;
+        session.connectionStream.listen((connected) {
+          if (!connected) {
+            print('[HOME] session $remoteId disconnected');
+            _sessions.remove(remoteId);
+            _latestScan.remove(remoteId);
+            if (mounted) setState(() {});
+          }
+        });
+      }
     } else {
-      _connError = result.error;
-      if (mounted) setState(() {});
-      Future.delayed(const Duration(seconds: 2), () {
-        if (_mounted) _startScanning();
-      });
+      print('[HOME] connect failed for $remoteId: ${result.error}');
     }
+    if (mounted) setState(() {});
   }
 
-  void _openDevice() {
+  void _openDevice(BottleSession session) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => DeviceScreen(bleService: widget.bleService),
+        builder: (_) => DeviceScreen(session: session),
       ),
     );
+  }
+
+  void _disconnectDevice(BottleSession session) {
+    final id = session.lastRemoteId;
+    if (id != null) {
+      widget.bleService.disconnectBottle(id);
+      _sessions.remove(id);
+      _latestScan.remove(id);
+      if (mounted) setState(() {});
+    }
   }
 
   String get _scanElapsed {
@@ -220,59 +197,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return '${elapsed.inSeconds}s';
   }
 
-  bool get _isConnected => widget.bleService.isConnected && !_connecting;
-
-  String get _bottleName {
-    final r = _bottleResult;
-    if (r == null) return '';
-    return r.device.advName.isNotEmpty
-        ? r.device.advName
-        : (r.device.platformName.isNotEmpty
-              ? r.device.platformName
-              : 'LARQ Bottle');
-  }
-
-  String _uiStateLabel(CapEnumUiState state) {
-    return switch (state) {
-      CapEnumUiState.on => 'Ready',
-      CapEnumUiState.uvNormal => 'UV Normal',
-      CapEnumUiState.uvAdventure => 'UV Adventure',
-      CapEnumUiState.uvMaintenance => 'UV Maintenance',
-      CapEnumUiState.uvInterlock => 'UV Interlock',
-      CapEnumUiState.charging => 'Charging',
-      CapEnumUiState.charged => 'Fully Charged',
-      CapEnumUiState.batteryLow => 'Low Battery',
-      CapEnumUiState.fault => 'Fault',
-      CapEnumUiState.locked => 'Locked',
-      CapEnumUiState.paired => 'Paired',
-      CapEnumUiState.hydrationReminder => 'Hydration Reminder',
-      CapEnumUiState.bottleCalibration => 'Calibrating',
-      CapEnumUiState.tofMeasurement => 'Measuring',
-      CapEnumUiState.turnOff => 'Turning Off',
-      CapEnumUiState.factoryReset => 'Factory Reset',
-      CapEnumUiState.allOff => 'Off',
-      CapEnumUiState.qc => 'QC Mode',
-      CapEnumUiState.last => 'Unknown',
-    };
-  }
-
-  Color _uiStateColor(CapEnumUiState state) {
-    return switch (state) {
-      CapEnumUiState.on || CapEnumUiState.uvNormal => Colors.blue,
-      CapEnumUiState.uvAdventure => Colors.purple,
-      CapEnumUiState.uvMaintenance => Colors.orange,
-      CapEnumUiState.charging || CapEnumUiState.charged => Colors.green,
-      CapEnumUiState.batteryLow || CapEnumUiState.fault => Colors.red,
-      CapEnumUiState.locked => Colors.grey,
-      CapEnumUiState.paired || CapEnumUiState.hydrationReminder => Colors.teal,
-      _ => Colors.grey,
-    };
+  String _bottleName(String remoteId) {
+    final r = _latestScan[remoteId];
+    if (r != null) {
+      final name = r.device.advName.isNotEmpty
+          ? r.device.advName
+          : r.device.platformName;
+      if (name.isNotEmpty) return name;
+    }
+    return 'LARQ Bottle';
   }
 
   @override
   Widget build(BuildContext context) {
-    final ble = widget.bleService;
-    final showBottle = _bottleResult != null || _isConnected;
+    final connectedSessions =
+        _sessions.values.where((s) => s.isConnected).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('LARQ Bridge')),
@@ -284,51 +223,79 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             devicesSeen: _scanDevicesSeen,
           ),
           const Divider(height: 1),
-          if (showBottle)
-            _BottleCard(
-              name: _isConnected
-                  ? (ble.deviceInfo.modelNumber.isNotEmpty
-                        ? ble.deviceInfo.modelNumber
-                        : 'LARQ Bottle')
-                  : _bottleName,
-              mac: _bottleResult?.device.remoteId.toString() ?? '',
-              rssi: _bottleResult?.rssi,
-              connecting: _connecting,
-              connected: _isConnected,
-              connError: _connError,
-              battery: ble.batteryLevel,
-              uiState: ble.uiState,
-              uiStateLabel: _uiStateLabel(ble.uiState),
-              uiStateColor: _uiStateColor(ble.uiState),
-              firmware: ble.deviceInfo.firmwareRevision,
-              onTap: _isConnected ? _openDevice : null,
-            ),
-          if (!showBottle && !_scanning)
-            Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.bluetooth_searching,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Ready to scan',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyLarge?.copyWith(color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _startScanning,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Start Scan'),
-                  ),
-                ],
+          if (connectedSessions.isEmpty) ...[
+            if (_scanning)
+              Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    const SizedBox(
+                      width: 64,
+                      height: 64,
+                      child: CircularProgressIndicator(strokeWidth: 3),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Scanning for LARQ bottles...',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.bluetooth_searching,
+                      size: 64,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No bottles connected',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: (){},
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Start Scan'),
+                    ),
+                  ],
+                ),
               ),
+          ] else ...[
+            for (final session in connectedSessions)
+              _BottleCard(
+                name: session.deviceInfo.modelNumber.isNotEmpty
+                    ? session.deviceInfo.modelNumber
+                    : _bottleName(session.lastRemoteId ?? ''),
+                mac: session.lastRemoteId ?? '',
+                rssi: _latestScan[session.lastRemoteId]?.rssi,
+                connected: true,
+                battery: session.batteryLevel,
+                firmware: session.deviceInfo.firmwareRevision,
+                onTap: () => _openDevice(session),
+              ),
+          ],
+          // Show placeholders for connecting sessions
+          for (final id in _connectingIds)
+            _BottleCard(
+              name: _bottleName(id),
+              mac: id,
+              rssi: _latestScan[id]?.rssi,
+              connecting: true,
+              connected: false,
+              battery: -1,
+              firmware: '',
+              onTap: null,
             ),
         ],
       ),
@@ -382,11 +349,7 @@ class _BottleCard extends StatelessWidget {
   final int? rssi;
   final bool connecting;
   final bool connected;
-  final String connError;
   final int battery;
-  final CapEnumUiState uiState;
-  final String uiStateLabel;
-  final Color uiStateColor;
   final String firmware;
   final VoidCallback? onTap;
 
@@ -394,13 +357,9 @@ class _BottleCard extends StatelessWidget {
     required this.name,
     required this.mac,
     this.rssi,
-    required this.connecting,
-    required this.connected,
-    required this.connError,
+    this.connecting = false,
+    this.connected = false,
     required this.battery,
-    required this.uiState,
-    required this.uiStateLabel,
-    required this.uiStateColor,
     required this.firmware,
     this.onTap,
   });
@@ -408,124 +367,75 @@ class _BottleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Icon(
-                    connected ? Icons.water_drop : Icons.bluetooth,
-                    color: connected ? Colors.teal : Colors.grey,
-                    size: 32,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        Text(
-                          mac,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (connecting)
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else if (connected)
-                    Row(
-                      children: [
-                        if (battery >= 0)
-                          Text(
-                            '$battery%',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        if (battery >= 0) const SizedBox(width: 8),
-                        const Icon(Icons.chevron_right, color: Colors.grey),
-                      ],
-                    )
-                  else
+              Icon(
+                connected ? Icons.water_drop : Icons.bluetooth,
+                color: connected ? Colors.teal : Colors.grey,
+                size: 32,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      rssi != null ? '${rssi} dBm' : '',
+                      name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      mac,
                       style: Theme.of(
                         context,
                       ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                     ),
-                ],
-              ),
-              if (connecting) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Connecting...',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.teal),
-                ),
-              ],
-              if (connError.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  connError,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.red),
-                ),
-              ],
-              if (connected) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: uiStateColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      uiStateLabel,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (firmware.isNotEmpty) ...[
-                      const SizedBox(width: 12),
-                      Text(
-                        'FW $firmware',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                      ),
-                    ],
                   ],
                 ),
-              ],
-              if (!connected && !connecting && connError.isEmpty) ...[
-                const SizedBox(height: 8),
+              ),
+              if (connecting)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (connected)
+                Row(
+                  children: [
+                    if (battery >= 0)
+                      Text(
+                        '$battery%',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    if (firmware.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        'FW $firmware',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey),
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    const Icon(Icons.chevron_right, color: Colors.grey),
+                  ],
+                )
+              else
                 Text(
-                  'Waiting for connection...',
+                  rssi != null ? '${rssi} dBm' : '',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                 ),
-              ],
             ],
           ),
         ),

@@ -128,3 +128,5 @@ devenv.lock
 local.properties
 .android/
 .devenv.flake.nix
+
+.idea

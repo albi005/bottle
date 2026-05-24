@@ -2,13 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/larq_protocol.dart';
-import '../services/larq_ble_service.dart';
+import '../services/bottle_session.dart';
 import '../services/health_connect_service.dart';
 
 class DeviceScreen extends StatefulWidget {
-  final LarqBleService bleService;
+  final BottleSession session;
 
-  const DeviceScreen({super.key, required this.bleService});
+  const DeviceScreen({super.key, required this.session});
 
   @override
   State<DeviceScreen> createState() => _DeviceScreenState();
@@ -31,15 +31,15 @@ class _DeviceScreenState extends State<DeviceScreen> {
   @override
   void initState() {
     super.initState();
-    _responseSub = widget.bleService.responseStream.listen((_) {
+    _responseSub = widget.session.responseStream.listen((_) {
       if (_mounted && mounted) setState(() {});
     });
-    _pollItemSub = widget.bleService.pollingItemStream.listen((item) {
+    _pollItemSub = widget.session.pollingItemStream.listen((item) {
       if (_mounted && mounted) {
         setState(() {
           _pollingItem = item;
           if (item == null) {
-            _lastPollDuration = widget.bleService.lastPollDuration;
+            _lastPollDuration = widget.session.lastPollDuration;
           }
         });
       }
@@ -65,15 +65,15 @@ class _DeviceScreenState extends State<DeviceScreen> {
   }
 
   Future<void> _manualPoll() async {
-    await widget.bleService.fetchAllData();
+    await widget.session.fetchAllData();
   }
 
   Future<void> _syncToHealthConnect() async {
     setState(() => _healthSyncing = true);
     try {
-      await widget.bleService.fetchAllData();
+      await widget.session.fetchAllData();
       final count = await _healthService.syncTofLogsToHealthConnect(
-        widget.bleService.tofLogs,
+        widget.session.tofLogs,
       );
       if (mounted) {
         setState(() => _healthSyncedCount += count);
@@ -87,7 +87,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ble = widget.bleService;
+    final session = widget.session;
 
     return Scaffold(
       appBar: AppBar(
@@ -109,33 +109,36 @@ class _DeviceScreenState extends State<DeviceScreen> {
             pollDuration: _lastPollDuration,
           ),
           const SizedBox(height: 8),
-          _HeroCard(ble: ble),
+          _HeroCard(session: session),
           const SizedBox(height: 8),
-          _DeviceInfoTile(info: ble.deviceInfo),
+          _DeviceInfoTile(info: session.deviceInfo),
           const SizedBox(height: 8),
-          _SensorsCard(ble: ble, fetchingItem: _pollingItem),
+          _SensorsCard(session: session, fetchingItem: _pollingItem),
           const SizedBox(height: 8),
-          _TofLogsCard(logs: ble.tofLogs, onLoadMore: ble.loadMoreTofLogs),
+          _TofLogsCard(
+            logs: session.tofLogs,
+            onLoadMore: session.loadMoreTofLogs,
+          ),
           const SizedBox(height: 8),
           _ActivationLogsCard(
-            logs: ble.activationLogs,
-            onLoadMore: ble.loadMoreActivationLogs,
+            logs: session.activationLogs,
+            onLoadMore: session.loadMoreActivationLogs,
           ),
           const SizedBox(height: 8),
           _AdcLogsCard(
-            actLogs: ble.activationAdcLogs,
-            chgLogs: ble.chargingAdcLogs,
-            onLoadMoreAct: ble.loadMoreActivationAdcLogs,
-            onLoadMoreChg: ble.loadMoreChargingAdcLogs,
+            actLogs: session.activationAdcLogs,
+            chgLogs: session.chargingAdcLogs,
+            onLoadMoreAct: session.loadMoreActivationAdcLogs,
+            onLoadMoreChg: session.loadMoreChargingAdcLogs,
           ),
           const SizedBox(height: 8),
           _FaultLogsCard(
-            logs: ble.faultLogs,
-            onLoadMore: ble.loadMoreFaultLogs,
+            logs: session.faultLogs,
+            onLoadMore: session.loadMoreFaultLogs,
           ),
           const SizedBox(height: 8),
           _ControlsCard(
-            ble: ble,
+            session: session,
             health: _healthService,
             healthAuthorized: _healthAuthorized,
             healthSyncing: _healthSyncing,
@@ -286,19 +289,19 @@ class _PollStatusBar extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  final LarqBleService ble;
+  final BottleSession session;
 
-  const _HeroCard({required this.ble});
+  const _HeroCard({required this.session});
 
   @override
   Widget build(BuildContext context) {
-    final uiState = ble.uiState;
-    final battery = ble.batteryLevel;
-    final info = ble.deviceInfo;
+    final uiState = session.uiState;
+    final battery = session.batteryLevel;
+    final info = session.deviceInfo;
     final name = info.modelNumber.isNotEmpty
         ? info.modelNumber
         : 'LARQ PureVis 2';
-    final mac = ble.lastRemoteId ?? '';
+    final mac = session.lastRemoteId ?? '';
 
     return Card(
       child: Padding(
@@ -409,10 +412,10 @@ class _DeviceInfoTile extends StatelessWidget {
 }
 
 class _SensorsCard extends StatelessWidget {
-  final LarqBleService ble;
+  final BottleSession session;
   final String? fetchingItem;
 
-  const _SensorsCard({required this.ble, this.fetchingItem});
+  const _SensorsCard({required this.session, this.fetchingItem});
 
   @override
   Widget build(BuildContext context) {
@@ -426,50 +429,50 @@ class _SensorsCard extends StatelessWidget {
             const Divider(),
             _SensorRow(
               'Battery',
-              '${ble.batteryLevel}%',
+              '${session.batteryLevel}%',
               loading: fetchingItem == 'Battery',
             ),
-            if (ble.bottleSensorState != null)
+            if (session.bottleSensorState != null)
               _SensorRow(
                 'Bottle Sensor',
-                ble.bottleSensorState!.state ? 'Present' : 'Absent',
+                session.bottleSensorState!.state ? 'Present' : 'Absent',
                 loading: fetchingItem == 'Bottle Sensor',
               ),
-            if (ble.sipSensorState != null)
+            if (session.sipSensorState != null)
               _SensorRow(
                 'SIP Sensor',
-                '${ble.sipSensorState!.value} (${ble.sipSensorState!.state ? "Active" : "Idle"})',
+                '${session.sipSensorState!.value} (${session.sipSensorState!.state ? "Active" : "Idle"})',
                 loading: fetchingItem == 'SIP Sensor',
               ),
-            if (ble.tofState != null)
+            if (session.tofState != null)
               _SensorRow(
                 'ToF Distance',
-                '${ble.tofState!.distanceInMillimeter}mm',
+                '${session.tofState!.distanceInMillimeter}mm',
                 loading: fetchingItem == 'ToF State',
               ),
-            if (ble.accelerometerState != null)
+            if (session.accelerometerState != null)
               _SensorRow(
                 'Accelerometer',
-                '${ble.accelerometerState!.x.toStringAsFixed(1)}, '
-                    '${ble.accelerometerState!.y.toStringAsFixed(1)}, '
-                    '${ble.accelerometerState!.z.toStringAsFixed(1)}',
+                '${session.accelerometerState!.x.toStringAsFixed(1)}, '
+                    '${session.accelerometerState!.y.toStringAsFixed(1)}, '
+                    '${session.accelerometerState!.z.toStringAsFixed(1)}',
                 loading: fetchingItem == 'Accelerometer',
               ),
-            if (ble.ambientLightState != null)
+            if (session.ambientLightState != null)
               _SensorRow(
                 'Ambient Light',
-                '${ble.ambientLightState!.value} lux',
+                '${session.ambientLightState!.value} lux',
                 loading: fetchingItem == 'Ambient Light',
               ),
-            if (ble.hallEffectState != null)
+            if (session.hallEffectState != null)
               _SensorRow(
                 'Hall Effect',
-                ble.hallEffectState!.state ? 'Open' : 'Closed',
+                session.hallEffectState!.state ? 'Open' : 'Closed',
                 loading: fetchingItem == 'Hall Effect',
               ),
             _SensorRow(
               'Power Saving',
-              ble.powerSavingMode == CapPowerSavingMode.off ? 'Off' : 'On',
+              session.powerSavingMode == CapPowerSavingMode.off ? 'Off' : 'On',
             ),
           ],
         ),
@@ -1046,7 +1049,7 @@ class _FaultLogsCardState extends State<_FaultLogsCard> {
 }
 
 class _ControlsCard extends StatelessWidget {
-  final LarqBleService ble;
+  final BottleSession session;
   final HealthConnectService health;
   final bool healthAuthorized;
   final bool healthSyncing;
@@ -1056,7 +1059,7 @@ class _ControlsCard extends StatelessWidget {
   final VoidCallback onSync;
 
   const _ControlsCard({
-    required this.ble,
+    required this.session,
     required this.health,
     required this.healthAuthorized,
     required this.healthSyncing,
@@ -1081,7 +1084,7 @@ class _ControlsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => ble.startPurification(),
+                    onPressed: () => session.startPurification(),
                     icon: const Icon(Icons.water_drop),
                     label: const Text('Start UV'),
                   ),
@@ -1089,7 +1092,7 @@ class _ControlsCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => ble.stopPurification(),
+                    onPressed: () => session.stopPurification(),
                     icon: const Icon(Icons.stop),
                     label: const Text('Stop UV'),
                   ),
