@@ -1,8 +1,7 @@
 # LARQ PureVis 2 — Bottle BLE Protocol Research
 
 > This document describes the bottle's BLE interface — its command set, protocol,
-> data types, and behavior. Implementation details and the app refactor will be
-> in a separate `plan.md`.
+> data types, and behavior.
 
 ## BLE Architecture
 
@@ -446,43 +445,7 @@ Activation and fault logs are much smaller (~10-30 entries total).
 
 ---
 
-## BlueZ / Linux Connection Quirks
-
-These behaviors are specific to BlueZ on Linux. Android does not exhibit
-them.
-
-### Unclean Disconnect → RSSI-0 Ghost (Proven)
-
-**Test procedure:**
-1. Connect to bottle (`rssi=-55`)
-2. `kill -9` the app process (no graceful disconnect)
-3. Launch fresh app, observe scan results
-
-**Observed:** The bottle appears immediately in scans with `rssi: 0`
-and a different cached MAC. Connection attempts to this ghost address
-fail silently. Scan cycles loop forever.
-
-### Fix: `bluetoothctl remove` (Proven)
-
-```sh
-bluetoothctl remove <MAC>
-```
-
-BlueZ tears down the stale link and removes the cached device. A fresh
-launch then connects immediately with a real RSSI.
-
-### Fallback: `bluetoothctl power off / on`
-
-If `bluetoothctl remove` doesn't resolve the issue, toggling the
-adapter clears all BlueZ state:
-
-```sh
-bluetoothctl power off && sleep 2 && bluetoothctl power on
-```
-
-Takes ~3-5 seconds. Restores a completely clean state.
-
-### MAC Rotation
+## MAC Rotation
 
 The same bottle (`LARQ_0jMdSZS8blV`) has connected and responded under
 these MACs:
