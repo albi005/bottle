@@ -15,9 +15,12 @@ class Bottle {
 
   Future<void> _start() async {
     try {
-      await device.value.connect();
+      print('Connecting to ${device.value.remoteId}');
+      await device.value.connect(timeout: Duration(seconds: 10));
+      print('Connected to ${device.value.remoteId}');
       device.set(device.value, force: true);
     } catch (e) {
+      print('Conecting to ${device.value.remoteId} failed:');
       print(e);
     }
   }
@@ -56,10 +59,9 @@ class LarqBleService {
     }
 
     final sub = FlutterBluePlus.scanResults.listen((r) {
-      print(r);
       print(
         '>>>>>>>>>>>>>>>>>>> ${r.where(filter).map((x) {
-          return '${x.device.platformName} ${x.device.remoteId} ${x.rssi}';
+          return '${x.device.platformName} ${x.device.remoteId} ${x.device.isConnected} ${x.rssi}';
         }).join('\n                    ')}',
       );
 
@@ -73,10 +75,9 @@ class LarqBleService {
 
       Future<void> asd() async {
         final asd = await FlutterBluePlus.systemDevices([]);
-        print(asd);
         print(
           '||||||||||||||||||| ${asd.where(filterDev).map((device) {
-            return '${device.platformName} ${device.remoteId}';
+            return '${device.platformName} ${device.remoteId} ${device.isConnected}';
           }).join('\n                    ')}',
         );
       }

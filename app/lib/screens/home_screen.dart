@@ -44,14 +44,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    return;
     print('[HOME] lifecycle: $state');
     if (state == AppLifecycleState.detached) {
       print('[HOME] app detached, disconnecting all sessions...');
-      widget.bleService.disconnectAll().then((_) {
-        print('[HOME] all sessions disconnected');
-      }).catchError((e) {
-        print('[HOME] disconnect error: $e');
-      });
+      widget.bleService
+          .disconnectAll()
+          .then((_) {
+            print('[HOME] all sessions disconnected');
+          })
+          .catchError((e) {
+            print('[HOME] disconnect error: $e');
+          });
     }
   }
 
@@ -80,14 +84,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     print('[HOME] starting scan');
     if (mounted) setState(() {});
 
-    _scanRefreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_mounted && mounted && _scanning) setState(() {});
-    });
-
     _scanResultsSub = widget.bleService
         .scanForDevices(timeout: _scanDuration)
         .listen(_onScanResults);
-
   }
 
   void _stopScan() {
@@ -103,6 +102,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _onScanResults(List<ScanResult> results) {
+    return;
     if (!_mounted || !_scanning) return;
     _scanDevicesSeen = results.length;
 
@@ -115,7 +115,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       // RSSI 0 = ghost entry — disconnect + remove bond
       if (r.rssi == 0) {
-        print('[HOME]   rssi=0 ghost: ${r.device.advName} ($remoteId) — disconnecting via FBP...');
+        print(
+          '[HOME]   rssi=0 ghost: ${r.device.advName} ($remoteId) — disconnecting via FBP...',
+        );
         widget.bleService.disconnectGhost(r.device);
         continue;
       }
@@ -174,11 +176,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _openDevice(BottleSession session) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DeviceScreen(session: session),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => DeviceScreen(session: session)));
   }
 
   void _disconnectDevice(BottleSession session) {
@@ -210,8 +210,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final connectedSessions =
-        _sessions.values.where((s) => s.isConnected).toList();
+    final connectedSessions = _sessions.values
+        .where((s) => s.isConnected)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('LARQ Bridge')),
@@ -256,15 +257,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     const SizedBox(height: 16),
                     Text(
                       'No bottles connected',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyLarge
-                          ?.copyWith(color: Colors.grey),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
-                      onPressed: (){},
+                      onPressed: () {},
                       icon: const Icon(Icons.refresh),
                       label: const Text('Start Scan'),
                     ),
@@ -385,10 +385,7 @@ class _BottleCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    Text(name, style: Theme.of(context).textTheme.titleMedium),
                     Text(
                       mac,
                       style: Theme.of(
@@ -410,19 +407,16 @@ class _BottleCard extends StatelessWidget {
                     if (battery >= 0)
                       Text(
                         '$battery%',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
+                        style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     if (firmware.isNotEmpty) ...[
                       const SizedBox(width: 4),
                       Text(
                         'FW $firmware',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Colors.grey),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                       ),
                     ],
                     const SizedBox(width: 8),
