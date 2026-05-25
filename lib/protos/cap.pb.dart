@@ -346,8 +346,8 @@ class CapTofState extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
     ..aI(1, _omitFieldNames ? '' : 'distanceInMillimeter',
-        protoName: 'distanceInMillimeter')
-    ..aI(2, _omitFieldNames ? '' : 'kcps')
+        protoName: 'distanceInMillimeter', fieldType: $pb.PbFieldType.OF3)
+    ..aI(2, _omitFieldNames ? '' : 'kcps', fieldType: $pb.PbFieldType.OF3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -412,7 +412,7 @@ class CapSipSensorState extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'CapSipSensorState',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'value')
+    ..aI(1, _omitFieldNames ? '' : 'value', fieldType: $pb.PbFieldType.OS3)
     ..aOB(2, _omitFieldNames ? '' : 'state')
     ..hasRequiredFields = false;
 
@@ -757,8 +757,8 @@ class CapTofLog extends $pb.GeneratedMessage {
     ..aE<CapEnumTofTriggerType>(2, _omitFieldNames ? '' : 'triggerType',
         protoName: 'triggerType', enumValues: CapEnumTofTriggerType.values)
     ..aI(3, _omitFieldNames ? '' : 'distanceInMillimeter',
-        protoName: 'distanceInMillimeter')
-    ..aI(4, _omitFieldNames ? '' : 'kcps')
+        protoName: 'distanceInMillimeter', fieldType: $pb.PbFieldType.OF3)
+    ..aI(4, _omitFieldNames ? '' : 'kcps', fieldType: $pb.PbFieldType.OF3)
     ..aD(5, _omitFieldNames ? '' : 'uvLedTempInOhm',
         protoName: 'uvLedTempInOhm', fieldType: $pb.PbFieldType.OF)
     ..hasRequiredFields = false;
@@ -858,7 +858,7 @@ class CapActivationLog extends $pb.GeneratedMessage {
     ..aE<CapEnumUvActivationMode>(2, _omitFieldNames ? '' : 'mode',
         enumValues: CapEnumUvActivationMode.values)
     ..aI(3, _omitFieldNames ? '' : 'batterySocInPercentage',
-        protoName: 'batterySocInPercentage')
+        protoName: 'batterySocInPercentage', fieldType: $pb.PbFieldType.OF3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
