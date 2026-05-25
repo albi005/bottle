@@ -52,6 +52,14 @@ CapBleResponse {
 
 - **MTU:** The bottle negotiates 247 bytes (observed). Each response carries at
   most 8 log entries.
+  - **Critical:** On Android, `mtu: null` in `device.connect()` skips MTU
+    negotiation entirely, leaving the connection at the default MTU of 23 bytes.
+    Our protobuf requests (51–67 bytes for sensor queries, larger for log
+    queries) get fragmented across multiple BLE packets. The bottle requires
+    **complete protobuf messages in a single write** — fragmented writes are
+    silently ignored, causing the bottle to never respond.
+  - **Fix:** Set `mtu: 512` (or omit the `mtu` parameter, which defaults to 512
+    on Android). FBP will negotiate down to the bottle's supported 247 bytes.
 - **Concurrent requests:** Tested by firing 5 `readTofLog` commands as fast as
   possible (all writes within ~10ms). The bottle **did NOT disconnect**. It
   responded to all 5 with the same page of data (since they used the same
@@ -61,6 +69,96 @@ CapBleResponse {
   reliably at natural BLE round-trip speed (~200-500ms per request due to
   response latency, not due to any required inter-request delay). No
   artificial pacing is needed.
+
+### TX Write Type
+
+The NUS TX characteristic (`6e400002`) supports only **Write Without
+Response** (not Write With Response). The write call must use
+`withoutResponse: true`. Using `withoutResponse: false` attempts a GATT
+Write Request on a characteristic that only advertises Write Without
+Response. Responses come as **notifications** on the RX characteristic
+(`6e400003`), not as GATT write acknowledgments.
+
+### requestId Field
+
+`CapBleRequest.requestId` is `fixed32` at field number 1. The first
+request must use `requestId = 1` (or higher), **not 0**. Protobuf 3
+omits default-value fields during serialization — `requestId = 0` is
+skipped entirely, producing a request without the field, which the bottle
+cannot correlate with a response. Use pre-increment (`++_counter`).
+
+### RX Subscription Order
+
+Subscribe to `onValueReceived` on the RX characteristic (`6e400003`)
+**before** calling `setNotifyValue(true)`. If `setNotifyValue` completes
+before the listener is attached, the first notification from the bottle
+may arrive during the gap and be lost.
+
+---
+
+## Proto Format Details
+
+The bottle's `.proto` file has **no package declaration**. Type URLs in
+`Any` bodies use the bare message name:
+`type.googleapis.com/RequestGetCapUiState` (no `package.` prefix).
+
+### Response Wrapper Field Names
+
+All sensor response wrappers embed the state in a **`state` submessage**
+at field 1 (not flat fields):
+
+```protobuf
+// Correct (matching the bottle's wire format):
+message ResponseGetCapTofState { CapTofState state = 1; }
+message ResponseGetCapSipSensorState { CapSipSensorState state = 1; }
+message ResponseGetCapBottleSensorState { CapBottleSensorState state = 1; }
+message ResponseGetCapHallEffectSensorState { CapHallEffectSensorState state = 1; }
+message ResponseGetCapAmbientLightSensorState { CapAmbientLightSensorState state = 1; }
+message ResponseGetCapAccelerometerState { CapAccelerometerState state = 1; }
+```
+
+`ResponseGetCapUiState` is an exception — it has flat `state` (enum) +
+`powerSavingMode` (enum) at fields 1 and 2, not a submessage.
+
+All log response wrappers use the repeated field name **`items`** at
+position 1 (not `entries`):
+
+```protobuf
+message ResponseGetCapTofLog { repeated CapTofLog items = 1; }
+// … same for all ResponseGet*Log messages
+```
+
+### Enum Value Oddities
+
+**`CapPowerSavingMode`** values are inverted relative to the intuitive
+naming in the bottle's firmware:
+
+| Value | Firmware enum name | Meaning |
+|-------|-------------------|---------|
+| 0 | `POWER_SAVING_MODE_ON` | Power saving ON |
+| 1 | `POWER_SAVING_MODE_OFF` | Power saving OFF |
+| 2 | `POWER_SAVING_MODE_AUTO` | Auto mode |
+
+The `CapEnumUiState` values match ours (0–18 in the same order) but use
+different enum names (`UI_STATE_ON`, `UI_STATE_FAULT`, …).
+
+### Official Reference App
+
+The decompiled official LARQ Android app is at
+`/tmp/opencode/larq_live_decomp/`. Key BLE parameters used:
+
+| Parameter | Value |
+|-----------|-------|
+| BLE library | `flutter_blue_plus` ^1.34.5 |
+| Proto codec | Hand-written encoder/decoder (`_PbWriter`/`_PbReader`) |
+| TX UUID | `6e400002-b5a3-f393-e0a9-e50e24dcca9e` |
+| RX UUID | `6e400003-b5a3-f393-e0a9-e50e24dcca9e` |
+| Write type | `withoutResponse: true` |
+| MTU | Default (512, negotiates to 247) |
+| requestId start | 1 (pre-increment) |
+
+The embedded proto descriptor is at `sources/defpackage/CapBle.java`
+(in a single long string literal near line 47137).
 
 ---
 
@@ -218,7 +316,7 @@ readUiState → ResponseGetCapUiState { CapEnumUiState state=1; CapPowerSavingMo
 `turnOff(13)`, `factoryReset(14)`, `allOff(15)`, `locked(16)`, `qc(17)`,
 `last(18)`.
 
-`CapPowerSavingMode`: `off(0)`, `on(1)`, `auto(2)`.
+`CapPowerSavingMode`: **Inverted!** `POWER_SAVING_MODE_ON=0`, `POWER_SAVING_MODE_OFF=1`, `AUTO=2`.
 
 ### CapSipSensorState
 
