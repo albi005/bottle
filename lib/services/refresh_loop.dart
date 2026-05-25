@@ -31,6 +31,7 @@ class RefreshLoop {
     if (_controller.connectionPhase.value != ConnectionPhase.ready) return;
 
     try {
+      _controller.logSyncPhase.value = LogSyncPhase.idle;
       _controller.refreshPhase.value = RefreshPhase.refreshingSensors;
       await _sensorService.refreshAllSensors();
 
@@ -39,8 +40,10 @@ class RefreshLoop {
 
       _controller.refreshPhase.value = RefreshPhase.idle;
       _controller.lastRefreshTime.value = DateTime.now();
-    } catch (e) {
+    } catch (e, _) {
       _controller.refreshPhase.value = RefreshPhase.error;
+      _controller.logSyncPhase.value = LogSyncPhase.idle;
+      _controller.logSyncError.value = '$e';
     }
 
     if (_running &&
