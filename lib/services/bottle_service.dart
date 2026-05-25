@@ -23,7 +23,7 @@ class BottleService {
   }
 
   Future<CapBleResponse> _sendRequest(CapBleRequest request) async {
-    final requestId = _nextRequestId++;
+    final requestId = ++_nextRequestId;
     request.requestId = requestId;
 
     final completer = Completer<CapBleResponse>();
@@ -31,7 +31,7 @@ class BottleService {
 
     await _connection.txChar!.write(
       Uint8List.fromList(request.writeToBuffer()),
-      withoutResponse: false,
+      withoutResponse: true,
     );
 
     return completer.future.timeout(

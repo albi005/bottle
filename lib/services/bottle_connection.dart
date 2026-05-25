@@ -19,7 +19,6 @@ class BottleConnection {
     await device!.connect(
       license: License.free,
       autoConnect: false,
-      mtu: null,
       timeout: const Duration(seconds: 15),
     );
   }
