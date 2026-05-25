@@ -291,7 +291,7 @@ class BottleService {
 
   Future<List<CapAdcLog>> getActivationAdcLogPage({
     required int fromTimestamp,
-    int limit = 5,
+    int limit = 4,
   }) async {
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetActivationCapAdcLog',
@@ -306,7 +306,7 @@ class BottleService {
 
   Future<List<CapAdcLog>> getChargingAdcLogPage({
     required int fromTimestamp,
-    int limit = 5,
+    int limit = 4,
   }) async {
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetChargingCapAdcLog',
