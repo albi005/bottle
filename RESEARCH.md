@@ -50,8 +50,7 @@ CapBleResponse {
 
 ### MTU and Timing
 
-- **MTU:** The bottle negotiates 247 bytes (observed). Each response carries at
-  most 8 log entries.
+- **MTU:** The bottle negotiates 247 bytes (observed).
   - **Critical:** On Android, `mtu: null` in `device.connect()` skips MTU
     negotiation entirely, leaving the connection at the default MTU of 23 bytes.
     Our protobuf requests (51–67 bytes for sensor queries, larger for log
@@ -69,6 +68,41 @@ CapBleResponse {
   reliably at natural BLE round-trip speed (~200-500ms per request due to
   response latency, not due to any required inter-request delay). No
   artificial pacing is needed.
+
+### BLE Notification Boundary Truncation (Critical)
+
+The bottle silently truncates protobuf responses at the BLE notification
+boundary. The max ATT payload is `MTU - 3 = 244 bytes`. The bottle's
+protobuf encoder serializes entries until the buffer is full, then sends
+the truncated result. The truncated response has a valid `Any` length
+prefix but the inner body contains incomplete entries — the last entry's
+length prefix is present but its data is cut off mid-field.
+
+This causes `InvalidProtocolBufferException: input ended unexpectedly in
+the middle of a field` when decoding.
+
+**Symptoms:**
+- Log types with small entries (Activation: ~13 bytes, Fault: ~8 bytes)
+  work fine — 8 entries easily fit in 244 bytes.
+- Log types with larger entries (TOF: ~23 bytes, State: ~27-29 bytes,
+  ADC: ~36 bytes) fail — the response overflows the boundary.
+
+**Fix:** Per-type page limits sized to fit the outer envelope (~55 bytes)
+plus all entries within 244 bytes:
+
+| Log Type | Entry Size | Safe Limit | Response Size |
+|---|---|---|---|
+| TOF Log | 23 bytes | **7** | 55 + 7×23 = 216 |
+| Activation Log | 13 bytes | 8 | 55 + 8×13 = 159 |
+| Fault Log | 8 bytes | 8 | 55 + 8×8 = 119 |
+| State Log | 27–29 bytes | **6** | 55 + 6×29 = 229 |
+| Activation ADC | 36 bytes | **4** | 55 + 4×38 = 207 |
+| Charging ADC | 36 bytes | **4** | 55 + 4×38 = 207 |
+
+**Multi-packet reassembly:** Some responses still arrive as multiple BLE
+notifications. A 200ms coalescing timer accumulates bytes before parsing.
+Without this, the first packet's partial data completes the request
+completer, and subsequent packets are silently discarded.
 
 ### TX Write Type
 
@@ -102,6 +136,18 @@ The bottle's `.proto` file has **no package declaration**. Type URLs in
 `Any` bodies use the bare message name:
 `type.googleapis.com/RequestGetCapUiState` (no `package.` prefix).
 
+Our `cap.proto` file uses `package bottle;` for Dart code generation
+purposes, but the type URLs sent to the bottle must NOT include the
+`bottle.` prefix — the bottle does not recognize prefixed names.
+
+### Bottle's Actual Field Types
+
+The bottle's firmware proto descriptor (extracted from
+`sources/defpackage/CapBle.java:48666`) specifies different field types
+than what a naive `.proto` file would suggest. Several `int32` fields
+are actually `fixed32` on the wire. See the "Proto Wire-Type
+Mismatches" section above for the complete mapping and fix.
+
 ### Response Wrapper Field Names
 
 All sensor response wrappers embed the state in a **`state` submessage**
@@ -128,7 +174,44 @@ message ResponseGetCapTofLog { repeated CapTofLog items = 1; }
 // … same for all ResponseGet*Log messages
 ```
 
-### Enum Value Oddities
+### Proto Wire-Type Mismatches (protoc-gen-dart)
+
+The Dart protobuf library (`package:protobuf`) is **strict about wire
+types**. If a field is registered as `OPTIONAL_INT32` (expects varint,
+wire type 0) but the bottle sends `fixed32` (wire type 5) or `sint32`
+(wire type 0 with zigzag), the field is silently skipped and defaults to
+0. The `protoc-gen-dart` code generator also silently drops `fixed32`,
+`uint64`, and `sint32` annotations — it generates `int32`/`int64` fields
+regardless.
+
+**The bottle uses these actual wire types** (parsed from the firmware's
+embedded proto descriptor):
+
+| Message | Field | Proto says | Bottle sends | Fix |
+|---|---|---|---|---|
+| `CapTofLog` | `distanceInMillimeter` (3) | `int32` | **fixed32** | `PbFieldType.OF3` |
+| `CapTofLog` | `kcps` (4) | `int32` | **fixed32** | `PbFieldType.OF3` |
+| `CapTofState` | `distanceInMillimeter` (1) | `int32` | **fixed32** | `PbFieldType.OF3` |
+| `CapTofState` | `kcps` (2) | `int32` | **fixed32** | `PbFieldType.OF3` |
+| `CapActivationLog` | `batterySocInPercentage` (3) | `int32` | **fixed32** | `PbFieldType.OF3` |
+| `CapSipSensorState` | `value` (1) | `int32` | **sint32** (zigzag) | `PbFieldType.OS3` |
+| `CapBottleSensorState` | `value` (1) | `sint32` | `sint32` ✓ | already OK |
+
+**`CapLogQuery` fields** (used for sending, not receiving):
+| Field | Type |
+|---|---|
+| `fromTimestamp` (1) | `uint64` (varint, same wire format as `int64` for positive values) |
+| `limit` (2) | **fixed32** — hand-encoded with tag `0x15` because generated proto uses `int32` varint which is wrong |
+
+**Fix:** Edit `cap.pb.dart` field registrations to add explicit
+`fieldType: $pb.PbFieldType.OF3` for fixed32 fields and
+`fieldType: $pb.PbFieldType.OS3` for sint32 fields. Also hand-encode
+log query bodies (the `CapLogQuery.limit` field) because the generated
+`CapLogQuery` class uses `aI` (varint) which the bottle rejects.
+
+**Verified working:** TOF distance shows correct non-zero values (74 mm,
+73 mm), sip counter changes across readings (0x01 → 0x02), confirming
+both OF3 and OS3 fixes decode correctly.
 
 **`CapPowerSavingMode`** values are inverted relative to the intuitive
 naming in the bottle's firmware:
@@ -252,16 +335,17 @@ All 6 log types use the same query/response mechanism:
 
 ```protobuf
 message CapLogQuery {
-    int64 fromTimestamp = 1;           // cursor: return entries with ts >= this
-    int32 limit = 2;                   // max entries per page (bottle caps at 8)
+    uint64 fromTimestamp = 1;           // cursor: return entries with ts >= this
+    fixed32 limit = 2;                  // max entries per page (safe limits vary by type)
     CapEnumLogQuerySearchAlgo algo = 3; // 0=TIMESTAMP, 1=INCREMENT
 }
-
-enum CapEnumLogQuerySearchAlgo {
-    SEARCH_ALGO_TIMESTAMP = 0;
-    SEARCH_ALGO_INCREMENT = 1;
-}
 ```
+
+**Hand-encoding required:** The Dart `protoc-gen-dart` silently drops
+`fixed32` and `uint64` annotations, generating `int32`/`int64` fields
+with varint encoding. The bottle expects `fixed32` (4-byte LE) for
+`limit`. Log queries must be hand-encoded to produce the correct wire
+format (tag `0x15` for limit, tag `0x08` for fromTimestamp).
 
 ### Paging
 
@@ -273,8 +357,11 @@ The bottle always returns entries **ascending** from the cursor:
 | `max(seenTimestamps) + 1` | Next page (forward) |
 | Very large (future) | After forward-paging has warmed the connection, **sometimes** returns newest entries descending. On a fresh connection, returns empty. **Unreliable — prefer forward-paging only.** |
 
-Each response contains at most 8 entries (limited by the 247-byte MTU), regardless
-of the `limit` value requested.
+Each response contains at most **N** entries where N depends on the entry
+type and the BLE MTU boundary (244 bytes). See "BLE Notification Boundary
+Truncation" section above for per-type safe limits. The `limit` parameter
+in the query should match these safe limits; requesting more than will fit
+causes the bottle to return a truncated protobuf with a partial last entry.
 
 ### Algo Field
 
