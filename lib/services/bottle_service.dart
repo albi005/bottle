@@ -16,15 +16,13 @@ class BottleService {
 
   Uint8List _encodeLogQuery({required int fromTimestamp, int limit = 8}) {
     final buf = <int>[];
-    if (fromTimestamp != 0) {
-      buf.add(0x08);
-      var v = fromTimestamp;
-      while (v > 0x7F) {
-        buf.add((v & 0x7F) | 0x80);
-        v = v >>> 7;
-      }
-      buf.add(v & 0x7F);
+    buf.add(0x08);
+    var v = fromTimestamp;
+    while (v > 0x7F) {
+      buf.add((v & 0x7F) | 0x80);
+      v = v >>> 7;
     }
+    buf.add(v & 0x7F);
     buf.add(0x15);
     buf.addAll([
       limit & 0xFF,

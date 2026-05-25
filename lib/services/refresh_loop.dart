@@ -42,7 +42,7 @@ class RefreshLoop {
       _controller.lastRefreshTime.value = DateTime.now();
     } catch (e, _) {
       _controller.refreshPhase.value = RefreshPhase.error;
-      _controller.logSyncPhase.value = LogSyncPhase.idle;
+      _controller.logSyncPhase.value = LogSyncPhase.error;
       _controller.logSyncError.value = '$e';
     }
 

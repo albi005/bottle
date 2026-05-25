@@ -69,7 +69,10 @@ class LogService {
       entryTs: (e) => e.timestamp.toInt(),
     );
 
-    _controller.logSyncPhase.value = LogSyncPhase.done;
+    _controller.logSyncPhase.value =
+        _controller.logSyncError.value != null
+            ? LogSyncPhase.error
+            : LogSyncPhase.done;
   }
 
   Future<void> _syncLogType<T>({
@@ -84,13 +87,19 @@ class LogService {
     while (true) {
       if (_controller.connectionPhase.value != ConnectionPhase.ready) {
         _controller.logSyncError.value = 'Disconnected during $name sync';
-        _controller.logSyncPhase.value = LogSyncPhase.error;
         return;
       }
 
       _controller.logSyncProgress.value = (name, cursor);
 
-      final entries = await fetcher(cursor);
+      List<T> entries;
+      try {
+        entries = await fetcher(cursor);
+      } catch (e) {
+        _controller.logSyncError.value = 'Sync $name: $e';
+        return;
+      }
+
       if (entries.isEmpty) break;
 
       await inserter(entries);

@@ -123,8 +123,15 @@ class _LogListViewState extends State<LogListView> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeRefresh());
 
     if (_entries.isEmpty && !_isLoading) {
-      return const Center(
-          child: Text('No entries', style: TextStyle(color: Colors.grey)));
+      final error = widget.controller.logSyncError.value;
+      return Center(
+        child: Text(
+          error != null ? 'Sync error' : 'No entries',
+          style: TextStyle(
+            color: error != null ? Colors.red : Colors.grey,
+          ),
+        ),
+      );
     }
 
     return ListView.builder(
