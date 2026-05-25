@@ -20,7 +20,7 @@ class SensorRow<T> extends StatelessWidget {
     return Watch((_) {
       final value = signal.value;
       return Row(children: [
-        SizedBox(width: 140, child: Text(label)),
+        SizedBox(width: 130, child: Text(label)),
         Expanded(
             child: switch (value) {
           SensorNotQueried() =>
@@ -34,7 +34,7 @@ class SensorRow<T> extends StatelessWidget {
           ]),
           SensorData(value: final v, refreshing: final refreshing) => Row(
               children: [
-                Text(formatter(v)),
+                Flexible(child: Text(formatter(v))),
                 if (refreshing) ...[
                   const SizedBox(width: 8),
                   const SizedBox.square(
@@ -43,7 +43,7 @@ class SensorRow<T> extends StatelessWidget {
                 ],
               ]),
           SensorError(message: final msg) =>
-            Text('Error: $msg', style: const TextStyle(color: Colors.red)),
+            Flexible(child: Text('Error: $msg', style: const TextStyle(color: Colors.red))),
         }),
       ]);
     });

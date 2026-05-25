@@ -81,7 +81,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetCapTofState.fromBuffer(r.body.value);
-        return data.distanceInMillimeter;
+        return data.state.distanceInMillimeter;
       },
     );
   }
@@ -93,7 +93,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetCapSipSensorState.fromBuffer(r.body.value);
-        return data.value;
+        return data.state.value;
       },
     );
   }
@@ -106,8 +106,8 @@ class BottleService {
       decoder: (r) {
         final data = ResponseGetCapHallEffectSensorState.fromBuffer(r.body.value);
         return HallEffectData(
-          timestamp: data.timestamp.toInt(),
-          value: data.value,
+          timestamp: data.state.timestamp.toInt(),
+          value: data.state.value,
         );
       },
     );
@@ -120,7 +120,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetCapBottleSensorState.fromBuffer(r.body.value);
-        return data.state;
+        return data.state.state;
       },
     );
   }
@@ -132,7 +132,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetCapAmbientLightSensorState.fromBuffer(r.body.value);
-        return data.value;
+        return data.state.value;
       },
     );
   }
@@ -144,7 +144,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetCapAccelerometerState.fromBuffer(r.body.value);
-        return AccelData(x: data.x, y: data.y, z: data.z);
+        return AccelData(x: data.state.x, y: data.state.y, z: data.state.z);
       },
     );
   }
@@ -182,7 +182,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetCapTofLog.fromBuffer(r.body.value);
-        return data.entries.where((e) => e.timestamp.toInt() >= 1000).toList();
+        return data.items.where((e) => e.timestamp.toInt() >= 1000).toList();
       },
     );
   }
@@ -202,7 +202,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetCapActivationLog.fromBuffer(r.body.value);
-        return data.entries;
+        return data.items;
       },
     );
   }
@@ -222,7 +222,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetCapFaultLog.fromBuffer(r.body.value);
-        return data.entries;
+        return data.items;
       },
     );
   }
@@ -242,7 +242,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetCapStateLog.fromBuffer(r.body.value);
-        return data.entries;
+        return data.items;
       },
     );
   }
@@ -262,7 +262,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetActivationCapAdcLog.fromBuffer(r.body.value);
-        return data.entries;
+        return data.items;
       },
     );
   }
@@ -282,7 +282,7 @@ class BottleService {
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
         final data = ResponseGetChargingCapAdcLog.fromBuffer(r.body.value);
-        return data.entries;
+        return data.items;
       },
     );
   }

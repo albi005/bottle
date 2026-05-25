@@ -188,33 +188,27 @@ message ResponseGetCapUiState {
 }
 
 message ResponseGetCapTofState {
-    int32 distanceInMillimeter = 1;
-    int32 kcps = 2;
+    CapTofState state = 1;
 }
 
 message ResponseGetCapSipSensorState {
-    int32 value = 1;
-    bool state = 2;
+    CapSipSensorState state = 1;
 }
 
 message ResponseGetCapHallEffectSensorState {
-    int64 timestamp = 1;
-    bool value = 2;
+    CapHallEffectSensorState state = 1;
 }
 
 message ResponseGetCapBottleSensorState {
-    sint32 value = 1;
-    bool state = 2;
+    CapBottleSensorState state = 1;
 }
 
 message ResponseGetCapAmbientLightSensorState {
-    float value = 1;
+    CapAmbientLightSensorState state = 1;
 }
 
 message ResponseGetCapAccelerometerState {
-    float x = 1;
-    float y = 2;
-    float z = 3;
+    CapAccelerometerState state = 1;
 }
 
 // ── Log request wrappers ──
@@ -246,25 +240,25 @@ message RequestGetChargingCapAdcLog {
 // ── Log response wrappers ──
 
 message ResponseGetCapTofLog {
-    repeated CapTofLog entries = 1;
+    repeated CapTofLog items = 1;
 }
 
 message ResponseGetCapStateLog {
-    repeated CapStateLog entries = 1;
+    repeated CapStateLog items = 1;
 }
 
 message ResponseGetCapActivationLog {
-    repeated CapActivationLog entries = 1;
+    repeated CapActivationLog items = 1;
 }
 
 message ResponseGetCapFaultLog {
-    repeated CapFaultLog entries = 1;
+    repeated CapFaultLog items = 1;
 }
 
 message ResponseGetActivationCapAdcLog {
-    repeated CapAdcLog entries = 1;
+    repeated CapAdcLog items = 1;
 }
 
 message ResponseGetChargingCapAdcLog {
-    repeated CapAdcLog entries = 1;
+    repeated CapAdcLog items = 1;
 }

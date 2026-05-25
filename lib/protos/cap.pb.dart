@@ -1614,13 +1614,10 @@ class ResponseGetCapUiState extends $pb.GeneratedMessage {
 
 class ResponseGetCapTofState extends $pb.GeneratedMessage {
   factory ResponseGetCapTofState({
-    $core.int? distanceInMillimeter,
-    $core.int? kcps,
+    CapTofState? state,
   }) {
     final result = create();
-    if (distanceInMillimeter != null)
-      result.distanceInMillimeter = distanceInMillimeter;
-    if (kcps != null) result.kcps = kcps;
+    if (state != null) result.state = state;
     return result;
   }
 
@@ -1637,9 +1634,8 @@ class ResponseGetCapTofState extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapTofState',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'distanceInMillimeter',
-        protoName: 'distanceInMillimeter')
-    ..aI(2, _omitFieldNames ? '' : 'kcps')
+    ..aOM<CapTofState>(1, _omitFieldNames ? '' : 'state',
+        subBuilder: CapTofState.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1663,31 +1659,22 @@ class ResponseGetCapTofState extends $pb.GeneratedMessage {
   static ResponseGetCapTofState? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.int get distanceInMillimeter => $_getIZ(0);
+  CapTofState get state => $_getN(0);
   @$pb.TagNumber(1)
-  set distanceInMillimeter($core.int value) => $_setSignedInt32(0, value);
+  set state(CapTofState value) => $_setField(1, value);
   @$pb.TagNumber(1)
-  $core.bool hasDistanceInMillimeter() => $_has(0);
+  $core.bool hasState() => $_has(0);
   @$pb.TagNumber(1)
-  void clearDistanceInMillimeter() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get kcps => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set kcps($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasKcps() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearKcps() => $_clearField(2);
+  void clearState() => $_clearField(1);
+  @$pb.TagNumber(1)
+  CapTofState ensureState() => $_ensure(0);
 }
 
 class ResponseGetCapSipSensorState extends $pb.GeneratedMessage {
   factory ResponseGetCapSipSensorState({
-    $core.int? value,
-    $core.bool? state,
+    CapSipSensorState? state,
   }) {
     final result = create();
-    if (value != null) result.value = value;
     if (state != null) result.state = state;
     return result;
   }
@@ -1705,8 +1692,8 @@ class ResponseGetCapSipSensorState extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapSipSensorState',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'value')
-    ..aOB(2, _omitFieldNames ? '' : 'state')
+    ..aOM<CapSipSensorState>(1, _omitFieldNames ? '' : 'state',
+        subBuilder: CapSipSensorState.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1732,32 +1719,23 @@ class ResponseGetCapSipSensorState extends $pb.GeneratedMessage {
   static ResponseGetCapSipSensorState? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.int get value => $_getIZ(0);
+  CapSipSensorState get state => $_getN(0);
   @$pb.TagNumber(1)
-  set value($core.int value) => $_setSignedInt32(0, value);
+  set state(CapSipSensorState value) => $_setField(1, value);
   @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
+  $core.bool hasState() => $_has(0);
   @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.bool get state => $_getBF(1);
-  @$pb.TagNumber(2)
-  set state($core.bool value) => $_setBool(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasState() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearState() => $_clearField(2);
+  void clearState() => $_clearField(1);
+  @$pb.TagNumber(1)
+  CapSipSensorState ensureState() => $_ensure(0);
 }
 
 class ResponseGetCapHallEffectSensorState extends $pb.GeneratedMessage {
   factory ResponseGetCapHallEffectSensorState({
-    $fixnum.Int64? timestamp,
-    $core.bool? value,
+    CapHallEffectSensorState? state,
   }) {
     final result = create();
-    if (timestamp != null) result.timestamp = timestamp;
-    if (value != null) result.value = value;
+    if (state != null) result.state = state;
     return result;
   }
 
@@ -1775,8 +1753,8 @@ class ResponseGetCapHallEffectSensorState extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapHallEffectSensorState',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..aInt64(1, _omitFieldNames ? '' : 'timestamp')
-    ..aOB(2, _omitFieldNames ? '' : 'value')
+    ..aOM<CapHallEffectSensorState>(1, _omitFieldNames ? '' : 'state',
+        subBuilder: CapHallEffectSensorState.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1803,31 +1781,22 @@ class ResponseGetCapHallEffectSensorState extends $pb.GeneratedMessage {
   static ResponseGetCapHallEffectSensorState? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $fixnum.Int64 get timestamp => $_getI64(0);
+  CapHallEffectSensorState get state => $_getN(0);
   @$pb.TagNumber(1)
-  set timestamp($fixnum.Int64 value) => $_setInt64(0, value);
+  set state(CapHallEffectSensorState value) => $_setField(1, value);
   @$pb.TagNumber(1)
-  $core.bool hasTimestamp() => $_has(0);
+  $core.bool hasState() => $_has(0);
   @$pb.TagNumber(1)
-  void clearTimestamp() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.bool get value => $_getBF(1);
-  @$pb.TagNumber(2)
-  set value($core.bool value) => $_setBool(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasValue() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearValue() => $_clearField(2);
+  void clearState() => $_clearField(1);
+  @$pb.TagNumber(1)
+  CapHallEffectSensorState ensureState() => $_ensure(0);
 }
 
 class ResponseGetCapBottleSensorState extends $pb.GeneratedMessage {
   factory ResponseGetCapBottleSensorState({
-    $core.int? value,
-    $core.bool? state,
+    CapBottleSensorState? state,
   }) {
     final result = create();
-    if (value != null) result.value = value;
     if (state != null) result.state = state;
     return result;
   }
@@ -1845,8 +1814,8 @@ class ResponseGetCapBottleSensorState extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapBottleSensorState',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'value', fieldType: $pb.PbFieldType.OS3)
-    ..aOB(2, _omitFieldNames ? '' : 'state')
+    ..aOM<CapBottleSensorState>(1, _omitFieldNames ? '' : 'state',
+        subBuilder: CapBottleSensorState.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1873,30 +1842,23 @@ class ResponseGetCapBottleSensorState extends $pb.GeneratedMessage {
   static ResponseGetCapBottleSensorState? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.int get value => $_getIZ(0);
+  CapBottleSensorState get state => $_getN(0);
   @$pb.TagNumber(1)
-  set value($core.int value) => $_setSignedInt32(0, value);
+  set state(CapBottleSensorState value) => $_setField(1, value);
   @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
+  $core.bool hasState() => $_has(0);
   @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.bool get state => $_getBF(1);
-  @$pb.TagNumber(2)
-  set state($core.bool value) => $_setBool(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasState() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearState() => $_clearField(2);
+  void clearState() => $_clearField(1);
+  @$pb.TagNumber(1)
+  CapBottleSensorState ensureState() => $_ensure(0);
 }
 
 class ResponseGetCapAmbientLightSensorState extends $pb.GeneratedMessage {
   factory ResponseGetCapAmbientLightSensorState({
-    $core.double? value,
+    CapAmbientLightSensorState? state,
   }) {
     final result = create();
-    if (value != null) result.value = value;
+    if (state != null) result.state = state;
     return result;
   }
 
@@ -1914,7 +1876,8 @@ class ResponseGetCapAmbientLightSensorState extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapAmbientLightSensorState',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..aD(1, _omitFieldNames ? '' : 'value', fieldType: $pb.PbFieldType.OF)
+    ..aOM<CapAmbientLightSensorState>(1, _omitFieldNames ? '' : 'state',
+        subBuilder: CapAmbientLightSensorState.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1941,25 +1904,23 @@ class ResponseGetCapAmbientLightSensorState extends $pb.GeneratedMessage {
   static ResponseGetCapAmbientLightSensorState? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.double get value => $_getN(0);
+  CapAmbientLightSensorState get state => $_getN(0);
   @$pb.TagNumber(1)
-  set value($core.double value) => $_setFloat(0, value);
+  set state(CapAmbientLightSensorState value) => $_setField(1, value);
   @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
+  $core.bool hasState() => $_has(0);
   @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
+  void clearState() => $_clearField(1);
+  @$pb.TagNumber(1)
+  CapAmbientLightSensorState ensureState() => $_ensure(0);
 }
 
 class ResponseGetCapAccelerometerState extends $pb.GeneratedMessage {
   factory ResponseGetCapAccelerometerState({
-    $core.double? x,
-    $core.double? y,
-    $core.double? z,
+    CapAccelerometerState? state,
   }) {
     final result = create();
-    if (x != null) result.x = x;
-    if (y != null) result.y = y;
-    if (z != null) result.z = z;
+    if (state != null) result.state = state;
     return result;
   }
 
@@ -1977,9 +1938,8 @@ class ResponseGetCapAccelerometerState extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapAccelerometerState',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..aD(1, _omitFieldNames ? '' : 'x', fieldType: $pb.PbFieldType.OF)
-    ..aD(2, _omitFieldNames ? '' : 'y', fieldType: $pb.PbFieldType.OF)
-    ..aD(3, _omitFieldNames ? '' : 'z', fieldType: $pb.PbFieldType.OF)
+    ..aOM<CapAccelerometerState>(1, _omitFieldNames ? '' : 'state',
+        subBuilder: CapAccelerometerState.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2006,31 +1966,15 @@ class ResponseGetCapAccelerometerState extends $pb.GeneratedMessage {
   static ResponseGetCapAccelerometerState? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.double get x => $_getN(0);
+  CapAccelerometerState get state => $_getN(0);
   @$pb.TagNumber(1)
-  set x($core.double value) => $_setFloat(0, value);
+  set state(CapAccelerometerState value) => $_setField(1, value);
   @$pb.TagNumber(1)
-  $core.bool hasX() => $_has(0);
+  $core.bool hasState() => $_has(0);
   @$pb.TagNumber(1)
-  void clearX() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.double get y => $_getN(1);
-  @$pb.TagNumber(2)
-  set y($core.double value) => $_setFloat(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasY() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearY() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.double get z => $_getN(2);
-  @$pb.TagNumber(3)
-  set z($core.double value) => $_setFloat(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasZ() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearZ() => $_clearField(3);
+  void clearState() => $_clearField(1);
+  @$pb.TagNumber(1)
+  CapAccelerometerState ensureState() => $_ensure(0);
 }
 
 class RequestGetCapTofLog extends $pb.GeneratedMessage {
@@ -2387,10 +2331,10 @@ class RequestGetChargingCapAdcLog extends $pb.GeneratedMessage {
 
 class ResponseGetCapTofLog extends $pb.GeneratedMessage {
   factory ResponseGetCapTofLog({
-    $core.Iterable<CapTofLog>? entries,
+    $core.Iterable<CapTofLog>? items,
   }) {
     final result = create();
-    if (entries != null) result.entries.addAll(entries);
+    if (items != null) result.items.addAll(items);
     return result;
   }
 
@@ -2407,7 +2351,7 @@ class ResponseGetCapTofLog extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapTofLog',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..pPM<CapTofLog>(1, _omitFieldNames ? '' : 'entries',
+    ..pPM<CapTofLog>(1, _omitFieldNames ? '' : 'items',
         subBuilder: CapTofLog.create)
     ..hasRequiredFields = false;
 
@@ -2431,15 +2375,15 @@ class ResponseGetCapTofLog extends $pb.GeneratedMessage {
   static ResponseGetCapTofLog? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<CapTofLog> get entries => $_getList(0);
+  $pb.PbList<CapTofLog> get items => $_getList(0);
 }
 
 class ResponseGetCapStateLog extends $pb.GeneratedMessage {
   factory ResponseGetCapStateLog({
-    $core.Iterable<CapStateLog>? entries,
+    $core.Iterable<CapStateLog>? items,
   }) {
     final result = create();
-    if (entries != null) result.entries.addAll(entries);
+    if (items != null) result.items.addAll(items);
     return result;
   }
 
@@ -2456,7 +2400,7 @@ class ResponseGetCapStateLog extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapStateLog',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..pPM<CapStateLog>(1, _omitFieldNames ? '' : 'entries',
+    ..pPM<CapStateLog>(1, _omitFieldNames ? '' : 'items',
         subBuilder: CapStateLog.create)
     ..hasRequiredFields = false;
 
@@ -2481,15 +2425,15 @@ class ResponseGetCapStateLog extends $pb.GeneratedMessage {
   static ResponseGetCapStateLog? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<CapStateLog> get entries => $_getList(0);
+  $pb.PbList<CapStateLog> get items => $_getList(0);
 }
 
 class ResponseGetCapActivationLog extends $pb.GeneratedMessage {
   factory ResponseGetCapActivationLog({
-    $core.Iterable<CapActivationLog>? entries,
+    $core.Iterable<CapActivationLog>? items,
   }) {
     final result = create();
-    if (entries != null) result.entries.addAll(entries);
+    if (items != null) result.items.addAll(items);
     return result;
   }
 
@@ -2506,7 +2450,7 @@ class ResponseGetCapActivationLog extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapActivationLog',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..pPM<CapActivationLog>(1, _omitFieldNames ? '' : 'entries',
+    ..pPM<CapActivationLog>(1, _omitFieldNames ? '' : 'items',
         subBuilder: CapActivationLog.create)
     ..hasRequiredFields = false;
 
@@ -2533,15 +2477,15 @@ class ResponseGetCapActivationLog extends $pb.GeneratedMessage {
   static ResponseGetCapActivationLog? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<CapActivationLog> get entries => $_getList(0);
+  $pb.PbList<CapActivationLog> get items => $_getList(0);
 }
 
 class ResponseGetCapFaultLog extends $pb.GeneratedMessage {
   factory ResponseGetCapFaultLog({
-    $core.Iterable<CapFaultLog>? entries,
+    $core.Iterable<CapFaultLog>? items,
   }) {
     final result = create();
-    if (entries != null) result.entries.addAll(entries);
+    if (items != null) result.items.addAll(items);
     return result;
   }
 
@@ -2558,7 +2502,7 @@ class ResponseGetCapFaultLog extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetCapFaultLog',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..pPM<CapFaultLog>(1, _omitFieldNames ? '' : 'entries',
+    ..pPM<CapFaultLog>(1, _omitFieldNames ? '' : 'items',
         subBuilder: CapFaultLog.create)
     ..hasRequiredFields = false;
 
@@ -2583,15 +2527,15 @@ class ResponseGetCapFaultLog extends $pb.GeneratedMessage {
   static ResponseGetCapFaultLog? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<CapFaultLog> get entries => $_getList(0);
+  $pb.PbList<CapFaultLog> get items => $_getList(0);
 }
 
 class ResponseGetActivationCapAdcLog extends $pb.GeneratedMessage {
   factory ResponseGetActivationCapAdcLog({
-    $core.Iterable<CapAdcLog>? entries,
+    $core.Iterable<CapAdcLog>? items,
   }) {
     final result = create();
-    if (entries != null) result.entries.addAll(entries);
+    if (items != null) result.items.addAll(items);
     return result;
   }
 
@@ -2608,7 +2552,7 @@ class ResponseGetActivationCapAdcLog extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetActivationCapAdcLog',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..pPM<CapAdcLog>(1, _omitFieldNames ? '' : 'entries',
+    ..pPM<CapAdcLog>(1, _omitFieldNames ? '' : 'items',
         subBuilder: CapAdcLog.create)
     ..hasRequiredFields = false;
 
@@ -2635,15 +2579,15 @@ class ResponseGetActivationCapAdcLog extends $pb.GeneratedMessage {
   static ResponseGetActivationCapAdcLog? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<CapAdcLog> get entries => $_getList(0);
+  $pb.PbList<CapAdcLog> get items => $_getList(0);
 }
 
 class ResponseGetChargingCapAdcLog extends $pb.GeneratedMessage {
   factory ResponseGetChargingCapAdcLog({
-    $core.Iterable<CapAdcLog>? entries,
+    $core.Iterable<CapAdcLog>? items,
   }) {
     final result = create();
-    if (entries != null) result.entries.addAll(entries);
+    if (items != null) result.items.addAll(items);
     return result;
   }
 
@@ -2660,7 +2604,7 @@ class ResponseGetChargingCapAdcLog extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ResponseGetChargingCapAdcLog',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'bottle'),
       createEmptyInstance: create)
-    ..pPM<CapAdcLog>(1, _omitFieldNames ? '' : 'entries',
+    ..pPM<CapAdcLog>(1, _omitFieldNames ? '' : 'items',
         subBuilder: CapAdcLog.create)
     ..hasRequiredFields = false;
 
@@ -2687,7 +2631,7 @@ class ResponseGetChargingCapAdcLog extends $pb.GeneratedMessage {
   static ResponseGetChargingCapAdcLog? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<CapAdcLog> get entries => $_getList(0);
+  $pb.PbList<CapAdcLog> get items => $_getList(0);
 }
 
 const $core.bool _omitFieldNames =

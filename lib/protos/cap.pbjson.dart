@@ -597,96 +597,126 @@ const ResponseGetCapTofState$json = {
   '1': 'ResponseGetCapTofState',
   '2': [
     {
-      '1': 'distanceInMillimeter',
+      '1': 'state',
       '3': 1,
       '4': 1,
-      '5': 5,
-      '10': 'distanceInMillimeter'
+      '5': 11,
+      '6': '.bottle.CapTofState',
+      '10': 'state'
     },
-    {'1': 'kcps', '3': 2, '4': 1, '5': 5, '10': 'kcps'},
   ],
 };
 
 /// Descriptor for `ResponseGetCapTofState`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapTofStateDescriptor =
     $convert.base64Decode(
-        'ChZSZXNwb25zZUdldENhcFRvZlN0YXRlEjIKFGRpc3RhbmNlSW5NaWxsaW1ldGVyGAEgASgFUh'
-        'RkaXN0YW5jZUluTWlsbGltZXRlchISCgRrY3BzGAIgASgFUgRrY3Bz');
+        'ChZSZXNwb25zZUdldENhcFRvZlN0YXRlEikKBXN0YXRlGAEgASgLMhMuYm90dGxlLkNhcFRvZl'
+        'N0YXRlUgVzdGF0ZQ==');
 
 @$core.Deprecated('Use responseGetCapSipSensorStateDescriptor instead')
 const ResponseGetCapSipSensorState$json = {
   '1': 'ResponseGetCapSipSensorState',
   '2': [
-    {'1': 'value', '3': 1, '4': 1, '5': 5, '10': 'value'},
-    {'1': 'state', '3': 2, '4': 1, '5': 8, '10': 'state'},
+    {
+      '1': 'state',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.bottle.CapSipSensorState',
+      '10': 'state'
+    },
   ],
 };
 
 /// Descriptor for `ResponseGetCapSipSensorState`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapSipSensorStateDescriptor =
     $convert.base64Decode(
-        'ChxSZXNwb25zZUdldENhcFNpcFNlbnNvclN0YXRlEhQKBXZhbHVlGAEgASgFUgV2YWx1ZRIUCg'
-        'VzdGF0ZRgCIAEoCFIFc3RhdGU=');
+        'ChxSZXNwb25zZUdldENhcFNpcFNlbnNvclN0YXRlEi8KBXN0YXRlGAEgASgLMhkuYm90dGxlLk'
+        'NhcFNpcFNlbnNvclN0YXRlUgVzdGF0ZQ==');
 
 @$core.Deprecated('Use responseGetCapHallEffectSensorStateDescriptor instead')
 const ResponseGetCapHallEffectSensorState$json = {
   '1': 'ResponseGetCapHallEffectSensorState',
   '2': [
-    {'1': 'timestamp', '3': 1, '4': 1, '5': 3, '10': 'timestamp'},
-    {'1': 'value', '3': 2, '4': 1, '5': 8, '10': 'value'},
+    {
+      '1': 'state',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.bottle.CapHallEffectSensorState',
+      '10': 'state'
+    },
   ],
 };
 
 /// Descriptor for `ResponseGetCapHallEffectSensorState`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapHallEffectSensorStateDescriptor =
     $convert.base64Decode(
-        'CiNSZXNwb25zZUdldENhcEhhbGxFZmZlY3RTZW5zb3JTdGF0ZRIcCgl0aW1lc3RhbXAYASABKA'
-        'NSCXRpbWVzdGFtcBIUCgV2YWx1ZRgCIAEoCFIFdmFsdWU=');
+        'CiNSZXNwb25zZUdldENhcEhhbGxFZmZlY3RTZW5zb3JTdGF0ZRI2CgVzdGF0ZRgBIAEoCzIgLm'
+        'JvdHRsZS5DYXBIYWxsRWZmZWN0U2Vuc29yU3RhdGVSBXN0YXRl');
 
 @$core.Deprecated('Use responseGetCapBottleSensorStateDescriptor instead')
 const ResponseGetCapBottleSensorState$json = {
   '1': 'ResponseGetCapBottleSensorState',
   '2': [
-    {'1': 'value', '3': 1, '4': 1, '5': 17, '10': 'value'},
-    {'1': 'state', '3': 2, '4': 1, '5': 8, '10': 'state'},
+    {
+      '1': 'state',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.bottle.CapBottleSensorState',
+      '10': 'state'
+    },
   ],
 };
 
 /// Descriptor for `ResponseGetCapBottleSensorState`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapBottleSensorStateDescriptor =
     $convert.base64Decode(
-        'Ch9SZXNwb25zZUdldENhcEJvdHRsZVNlbnNvclN0YXRlEhQKBXZhbHVlGAEgASgRUgV2YWx1ZR'
-        'IUCgVzdGF0ZRgCIAEoCFIFc3RhdGU=');
+        'Ch9SZXNwb25zZUdldENhcEJvdHRsZVNlbnNvclN0YXRlEjIKBXN0YXRlGAEgASgLMhwuYm90dG'
+        'xlLkNhcEJvdHRsZVNlbnNvclN0YXRlUgVzdGF0ZQ==');
 
 @$core.Deprecated('Use responseGetCapAmbientLightSensorStateDescriptor instead')
 const ResponseGetCapAmbientLightSensorState$json = {
   '1': 'ResponseGetCapAmbientLightSensorState',
   '2': [
-    {'1': 'value', '3': 1, '4': 1, '5': 2, '10': 'value'},
+    {
+      '1': 'state',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.bottle.CapAmbientLightSensorState',
+      '10': 'state'
+    },
   ],
 };
 
 /// Descriptor for `ResponseGetCapAmbientLightSensorState`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapAmbientLightSensorStateDescriptor =
     $convert.base64Decode(
-        'CiVSZXNwb25zZUdldENhcEFtYmllbnRMaWdodFNlbnNvclN0YXRlEhQKBXZhbHVlGAEgASgCUg'
-        'V2YWx1ZQ==');
+        'CiVSZXNwb25zZUdldENhcEFtYmllbnRMaWdodFNlbnNvclN0YXRlEjgKBXN0YXRlGAEgASgLMi'
+        'IuYm90dGxlLkNhcEFtYmllbnRMaWdodFNlbnNvclN0YXRlUgVzdGF0ZQ==');
 
 @$core.Deprecated('Use responseGetCapAccelerometerStateDescriptor instead')
 const ResponseGetCapAccelerometerState$json = {
   '1': 'ResponseGetCapAccelerometerState',
   '2': [
-    {'1': 'x', '3': 1, '4': 1, '5': 2, '10': 'x'},
-    {'1': 'y', '3': 2, '4': 1, '5': 2, '10': 'y'},
-    {'1': 'z', '3': 3, '4': 1, '5': 2, '10': 'z'},
+    {
+      '1': 'state',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.bottle.CapAccelerometerState',
+      '10': 'state'
+    },
   ],
 };
 
 /// Descriptor for `ResponseGetCapAccelerometerState`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapAccelerometerStateDescriptor =
     $convert.base64Decode(
-        'CiBSZXNwb25zZUdldENhcEFjY2VsZXJvbWV0ZXJTdGF0ZRIMCgF4GAEgASgCUgF4EgwKAXkYAi'
-        'ABKAJSAXkSDAoBehgDIAEoAlIBeg==');
+        'CiBSZXNwb25zZUdldENhcEFjY2VsZXJvbWV0ZXJTdGF0ZRIzCgVzdGF0ZRgBIAEoCzIdLmJvdH'
+        'RsZS5DYXBBY2NlbGVyb21ldGVyU3RhdGVSBXN0YXRl');
 
 @$core.Deprecated('Use requestGetCapTofLogDescriptor instead')
 const RequestGetCapTofLog$json = {
@@ -816,32 +846,32 @@ const ResponseGetCapTofLog$json = {
   '1': 'ResponseGetCapTofLog',
   '2': [
     {
-      '1': 'entries',
+      '1': 'items',
       '3': 1,
       '4': 3,
       '5': 11,
       '6': '.bottle.CapTofLog',
-      '10': 'entries'
+      '10': 'items'
     },
   ],
 };
 
 /// Descriptor for `ResponseGetCapTofLog`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapTofLogDescriptor = $convert.base64Decode(
-    'ChRSZXNwb25zZUdldENhcFRvZkxvZxIrCgdlbnRyaWVzGAEgAygLMhEuYm90dGxlLkNhcFRvZk'
-    'xvZ1IHZW50cmllcw==');
+    'ChRSZXNwb25zZUdldENhcFRvZkxvZxInCgVpdGVtcxgBIAMoCzIRLmJvdHRsZS5DYXBUb2ZMb2'
+    'dSBWl0ZW1z');
 
 @$core.Deprecated('Use responseGetCapStateLogDescriptor instead')
 const ResponseGetCapStateLog$json = {
   '1': 'ResponseGetCapStateLog',
   '2': [
     {
-      '1': 'entries',
+      '1': 'items',
       '3': 1,
       '4': 3,
       '5': 11,
       '6': '.bottle.CapStateLog',
-      '10': 'entries'
+      '10': 'items'
     },
   ],
 };
@@ -849,20 +879,20 @@ const ResponseGetCapStateLog$json = {
 /// Descriptor for `ResponseGetCapStateLog`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapStateLogDescriptor =
     $convert.base64Decode(
-        'ChZSZXNwb25zZUdldENhcFN0YXRlTG9nEi0KB2VudHJpZXMYASADKAsyEy5ib3R0bGUuQ2FwU3'
-        'RhdGVMb2dSB2VudHJpZXM=');
+        'ChZSZXNwb25zZUdldENhcFN0YXRlTG9nEikKBWl0ZW1zGAEgAygLMhMuYm90dGxlLkNhcFN0YX'
+        'RlTG9nUgVpdGVtcw==');
 
 @$core.Deprecated('Use responseGetCapActivationLogDescriptor instead')
 const ResponseGetCapActivationLog$json = {
   '1': 'ResponseGetCapActivationLog',
   '2': [
     {
-      '1': 'entries',
+      '1': 'items',
       '3': 1,
       '4': 3,
       '5': 11,
       '6': '.bottle.CapActivationLog',
-      '10': 'entries'
+      '10': 'items'
     },
   ],
 };
@@ -870,20 +900,20 @@ const ResponseGetCapActivationLog$json = {
 /// Descriptor for `ResponseGetCapActivationLog`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapActivationLogDescriptor =
     $convert.base64Decode(
-        'ChtSZXNwb25zZUdldENhcEFjdGl2YXRpb25Mb2cSMgoHZW50cmllcxgBIAMoCzIYLmJvdHRsZS'
-        '5DYXBBY3RpdmF0aW9uTG9nUgdlbnRyaWVz');
+        'ChtSZXNwb25zZUdldENhcEFjdGl2YXRpb25Mb2cSLgoFaXRlbXMYASADKAsyGC5ib3R0bGUuQ2'
+        'FwQWN0aXZhdGlvbkxvZ1IFaXRlbXM=');
 
 @$core.Deprecated('Use responseGetCapFaultLogDescriptor instead')
 const ResponseGetCapFaultLog$json = {
   '1': 'ResponseGetCapFaultLog',
   '2': [
     {
-      '1': 'entries',
+      '1': 'items',
       '3': 1,
       '4': 3,
       '5': 11,
       '6': '.bottle.CapFaultLog',
-      '10': 'entries'
+      '10': 'items'
     },
   ],
 };
@@ -891,20 +921,20 @@ const ResponseGetCapFaultLog$json = {
 /// Descriptor for `ResponseGetCapFaultLog`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetCapFaultLogDescriptor =
     $convert.base64Decode(
-        'ChZSZXNwb25zZUdldENhcEZhdWx0TG9nEi0KB2VudHJpZXMYASADKAsyEy5ib3R0bGUuQ2FwRm'
-        'F1bHRMb2dSB2VudHJpZXM=');
+        'ChZSZXNwb25zZUdldENhcEZhdWx0TG9nEikKBWl0ZW1zGAEgAygLMhMuYm90dGxlLkNhcEZhdW'
+        'x0TG9nUgVpdGVtcw==');
 
 @$core.Deprecated('Use responseGetActivationCapAdcLogDescriptor instead')
 const ResponseGetActivationCapAdcLog$json = {
   '1': 'ResponseGetActivationCapAdcLog',
   '2': [
     {
-      '1': 'entries',
+      '1': 'items',
       '3': 1,
       '4': 3,
       '5': 11,
       '6': '.bottle.CapAdcLog',
-      '10': 'entries'
+      '10': 'items'
     },
   ],
 };
@@ -912,20 +942,20 @@ const ResponseGetActivationCapAdcLog$json = {
 /// Descriptor for `ResponseGetActivationCapAdcLog`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetActivationCapAdcLogDescriptor =
     $convert.base64Decode(
-        'Ch5SZXNwb25zZUdldEFjdGl2YXRpb25DYXBBZGNMb2cSKwoHZW50cmllcxgBIAMoCzIRLmJvdH'
-        'RsZS5DYXBBZGNMb2dSB2VudHJpZXM=');
+        'Ch5SZXNwb25zZUdldEFjdGl2YXRpb25DYXBBZGNMb2cSJwoFaXRlbXMYASADKAsyES5ib3R0bG'
+        'UuQ2FwQWRjTG9nUgVpdGVtcw==');
 
 @$core.Deprecated('Use responseGetChargingCapAdcLogDescriptor instead')
 const ResponseGetChargingCapAdcLog$json = {
   '1': 'ResponseGetChargingCapAdcLog',
   '2': [
     {
-      '1': 'entries',
+      '1': 'items',
       '3': 1,
       '4': 3,
       '5': 11,
       '6': '.bottle.CapAdcLog',
-      '10': 'entries'
+      '10': 'items'
     },
   ],
 };
@@ -933,5 +963,5 @@ const ResponseGetChargingCapAdcLog$json = {
 /// Descriptor for `ResponseGetChargingCapAdcLog`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List responseGetChargingCapAdcLogDescriptor =
     $convert.base64Decode(
-        'ChxSZXNwb25zZUdldENoYXJnaW5nQ2FwQWRjTG9nEisKB2VudHJpZXMYASADKAsyES5ib3R0bG'
-        'UuQ2FwQWRjTG9nUgdlbnRyaWVz');
+        'ChxSZXNwb25zZUdldENoYXJnaW5nQ2FwQWRjTG9nEicKBWl0ZW1zGAEgAygLMhEuYm90dGxlLk'
+        'NhcEFkY0xvZ1IFaXRlbXM=');

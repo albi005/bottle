@@ -27,7 +27,7 @@ class BottleConnection {
     await device!.discoverServices();
     for (final svc in device!.servicesList) {
       for (final c in svc.characteristics) {
-        final u = c.uuid.toString();
+        final u = c.uuid.str128;
         if (u == txUuid) txChar = c;
         if (u == rxUuid) rxChar = c;
         if (u == '00002a19-0000-1000-8000-00805f9b34fb') batteryChar = c;
