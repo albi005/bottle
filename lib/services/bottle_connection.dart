@@ -40,8 +40,8 @@ class BottleConnection {
 
   Future<void> subscribeToRx(void Function(List<int>) onData) async {
     if (rxChar == null) throw StateError('RX characteristic not found');
-    await rxChar!.setNotifyValue(true);
     _rxSubscription = rxChar!.onValueReceived.listen(onData);
+    await rxChar!.setNotifyValue(true);
   }
 
   Future<void> disconnect() async {
