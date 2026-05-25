@@ -22,20 +22,17 @@ class BottleService {
     completer.complete(response);
   }
 
-  Future<CapBleResponse> _sendRequest(Uint8List writtenBytes) async {
+  Future<CapBleResponse> _sendRequest(CapBleRequest request) async {
     final requestId = _nextRequestId++;
-
-    final bytes = Uint8List(writtenBytes.length);
-    bytes.setAll(0, writtenBytes);
-    bytes[1] = (requestId >> 0) & 0xFF;
-    bytes[2] = (requestId >> 8) & 0xFF;
-    bytes[3] = (requestId >> 16) & 0xFF;
-    bytes[4] = (requestId >> 24) & 0xFF;
+    request.requestId = requestId;
 
     final completer = Completer<CapBleResponse>();
     _pending[requestId] = completer;
 
-    await _connection.txChar!.write(bytes, withoutResponse: false);
+    await _connection.txChar!.write(
+      Uint8List.fromList(request.writeToBuffer()),
+      withoutResponse: false,
+    );
 
     return completer.future.timeout(
       const Duration(seconds: 10),
@@ -53,8 +50,7 @@ class BottleService {
         ..typeUrl = typeUrl
         ..value = body);
 
-    final response = await _sendRequest(
-      Uint8List.fromList(request.writeToBuffer()));
+    final response = await _sendRequest(request);
 
     if (response.code != CapEnumResponseCode.SUCCESS) {
       throw Exception('Request failed: code=${response.code} typeUrl=$typeUrl');

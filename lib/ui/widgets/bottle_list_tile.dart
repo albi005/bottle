@@ -59,8 +59,10 @@ class BottleListTile extends StatelessWidget {
           ConnectionPhase.ready => IconButton(
               icon: const Icon(Icons.link_off),
               onPressed: () => controller.disconnect()),
-          ConnectionPhase.visible => IconButton(
-              icon: const Icon(Icons.bluetooth),
+          ConnectionPhase.visible || ConnectionPhase.failed => IconButton(
+              icon: Icon(phase == ConnectionPhase.failed
+                  ? Icons.refresh
+                  : Icons.bluetooth),
               onPressed: () {
                 final sr = controller.scanResult.value;
                 if (sr != null) controller.connect(sr);

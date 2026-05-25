@@ -11,12 +11,6 @@ class BleScanner {
   StreamSubscription? _scanSubscription;
 
   void startScanning() {
-    isScanning.value = true;
-
-    FlutterBluePlus.startScan(
-      withServices: [nusServiceUuid],
-    );
-
     _scanSubscription = FlutterBluePlus.onScanResults.listen((results) {
       final larqBottles = results.where(
         (r) => r.device.platformName.startsWith('LARQ_'),
@@ -38,6 +32,11 @@ class BleScanner {
 
         if (existing != null) {
           existing.updateScan(result);
+          final phase = existing.connectionPhase.value;
+          if (phase == ConnectionPhase.visible ||
+              phase == ConnectionPhase.failed) {
+            existing.connect(result);
+          }
         } else {
           final controller = BottleController(
             name: name,
@@ -49,6 +48,8 @@ class BleScanner {
           if (selectedBottleIndex.value == null) {
             selectedBottleIndex.value = activeBottles.length - 1;
           }
+
+          controller.connect(result);
         }
       }
 
@@ -62,6 +63,10 @@ class BleScanner {
         }
       }
     });
+
+    isScanning.value = true;
+
+    FlutterBluePlus.startScan();
   }
 
   void stopScanning() {

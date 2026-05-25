@@ -43,6 +43,7 @@ class BottleController {
   SensorService? _sensorService;
   LogService? _logService;
   RefreshLoop? _refreshLoop;
+  bool _connecting = false;
 
   BottleController({required this.name, required this.remoteId});
 
@@ -55,6 +56,13 @@ class BottleController {
   }
 
   Future<void> connect(ScanResult result) async {
+    if (_connecting) return;
+    if (connectionPhase.value == ConnectionPhase.connecting ||
+        connectionPhase.value == ConnectionPhase.discovering ||
+        connectionPhase.value == ConnectionPhase.ready) {
+      return;
+    }
+    _connecting = true;
     updateScan(result);
     connectionPhase.value = ConnectionPhase.connecting;
     connectionError.value = null;
@@ -80,6 +88,8 @@ class BottleController {
     } catch (e) {
       connectionPhase.value = ConnectionPhase.failed;
       connectionError.value = e.toString();
+    } finally {
+      _connecting = false;
     }
   }
 
