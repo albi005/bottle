@@ -83,9 +83,11 @@ class LogService {
     required int Function(T) entryTs,
   }) async {
     int cursor = await _repo.getLatestTimestamp(table, _controller.name);
+    print('[LGS] _syncLogType $name starting cursor=$cursor');
 
     while (true) {
       if (_controller.connectionPhase.value != ConnectionPhase.ready) {
+        print('[LGS] _syncLogType $name disconnected');
         _controller.logSyncError.value = 'Disconnected during $name sync';
         return;
       }
@@ -96,15 +98,18 @@ class LogService {
       try {
         entries = await fetcher(cursor);
       } catch (e) {
+        print('[LGS] _syncLogType $name error: $e');
         _controller.logSyncError.value = 'Sync $name: $e';
         return;
       }
 
-      if (entries.isEmpty) break;
+      if (entries.isEmpty) {
+        print('[LGS] _syncLogType $name empty, done');
+        break;
+      }
 
       await inserter(entries);
-
-      if (entries.length < 8) break;
+      print('[LGS] _syncLogType $name inserted ${entries.length} entries');
 
       cursor = entries.map(entryTs).reduce(max) + 1;
     }

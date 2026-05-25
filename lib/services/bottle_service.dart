@@ -11,6 +11,8 @@ class BottleService {
   final BottleConnection _connection;
   int _nextRequestId = 0;
   final _pending = <int, Completer<CapBleResponse>>{};
+  final _buffer = <int>[];
+  Timer? _reassemblyTimer;
 
   BottleService(this._connection);
 
@@ -30,6 +32,8 @@ class BottleService {
       (limit >> 16) & 0xFF,
       (limit >> 24) & 0xFF,
     ]);
+    print('[BTL] _encodeLogQuery from=$fromTimestamp limit=$limit => '
+        '${buf.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
     return Uint8List.fromList(buf);
   }
 
@@ -48,10 +52,27 @@ class BottleService {
   }
 
   void onResponse(List<int> data) {
-    final response = CapBleResponse.fromBuffer(data);
-    final completer = _pending.remove(response.requestId);
-    if (completer == null) return;
-    completer.complete(response);
+    print('[BTL] onResponse ${data.length} bytes: '
+        '${data.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
+    _buffer.addAll(data);
+
+    _reassemblyTimer?.cancel();
+    _reassemblyTimer = Timer(const Duration(milliseconds: 200), () {
+      final bytes = Uint8List.fromList(List.of(_buffer));
+      _buffer.clear();
+
+      CapBleResponse response;
+      try {
+        response = CapBleResponse.fromBuffer(bytes);
+      } catch (e) {
+        print('[BTL] failed to parse response: $e');
+        return;
+      }
+
+      final completer = _pending.remove(response.requestId);
+      if (completer == null) return;
+      completer.complete(response);
+    });
   }
 
   Future<CapBleResponse> _sendRequest(CapBleRequest request) async {
@@ -61,8 +82,12 @@ class BottleService {
     final completer = Completer<CapBleResponse>();
     _pending[requestId] = completer;
 
+    final bytes = Uint8List.fromList(request.writeToBuffer());
+    print('[BTL] _sendRequest id=$requestId '
+        '${bytes.length} bytes: '
+        '${bytes.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
     await _connection.txChar!.write(
-      Uint8List.fromList(request.writeToBuffer()),
+      bytes,
       withoutResponse: true,
     );
 
@@ -83,6 +108,10 @@ class BottleService {
         ..value = body);
 
     final response = await _sendRequest(request);
+
+    print('[BTL] _sendGetter typeUrl=$typeUrl code=${response.code} '
+        'bodySize=${response.body.value.length}');
+    print('[BTL]   body hex=${response.body.value.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
 
     if (response.code != CapEnumResponseCode.SUCCESS) {
       throw Exception('Request failed: code=${response.code} typeUrl=$typeUrl');
@@ -201,14 +230,16 @@ class BottleService {
 
   Future<List<CapTofLog>> getTofLogPage({
     required int fromTimestamp,
-    int limit = 8,
+    int limit = 7,
   }) async {
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetCapTofLog',
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapTofLog.fromBuffer(r.body.value);
-        return data.items.where((e) => e.timestamp.toInt() >= 1000).toList();
+        final items = data.items.where((e) => e.timestamp.toInt() >= 1000).toList();
+        print('[BTL] getTofLogPage from=$fromTimestamp got ${items.length} items');
+        return items;
       },
     );
   }
@@ -222,6 +253,7 @@ class BottleService {
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapActivationLog.fromBuffer(r.body.value);
+        print('[BTL] getActivationLogPage from=$fromTimestamp got ${data.items.length} items');
         return data.items;
       },
     );
@@ -236,6 +268,7 @@ class BottleService {
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapFaultLog.fromBuffer(r.body.value);
+        print('[BTL] getFaultLogPage from=$fromTimestamp got ${data.items.length} items');
         return data.items;
       },
     );
@@ -243,13 +276,14 @@ class BottleService {
 
   Future<List<CapStateLog>> getStateLogPage({
     required int fromTimestamp,
-    int limit = 8,
+    int limit = 6,
   }) async {
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetCapStateLog',
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapStateLog.fromBuffer(r.body.value);
+        print('[BTL] getStateLogPage from=$fromTimestamp got ${data.items.length} items');
         return data.items;
       },
     );
@@ -257,13 +291,14 @@ class BottleService {
 
   Future<List<CapAdcLog>> getActivationAdcLogPage({
     required int fromTimestamp,
-    int limit = 8,
+    int limit = 5,
   }) async {
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetActivationCapAdcLog',
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetActivationCapAdcLog.fromBuffer(r.body.value);
+        print('[BTL] getActivationAdcLogPage from=$fromTimestamp got ${data.items.length} items');
         return data.items;
       },
     );
@@ -271,13 +306,14 @@ class BottleService {
 
   Future<List<CapAdcLog>> getChargingAdcLogPage({
     required int fromTimestamp,
-    int limit = 8,
+    int limit = 5,
   }) async {
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetChargingCapAdcLog',
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetChargingCapAdcLog.fromBuffer(r.body.value);
+        print('[BTL] getChargingAdcLogPage from=$fromTimestamp got ${data.items.length} items');
         return data.items;
       },
     );
