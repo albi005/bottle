@@ -1,0 +1,270 @@
+syntax = "proto3";
+
+package bottle;
+
+import "google/protobuf/any.proto";
+
+// ── Envelope ──
+
+message CapBleRequest {
+    fixed32 requestId = 1;
+    google.protobuf.Any body = 2;
+}
+
+message CapBleResponse {
+    fixed32 requestId = 1;
+    CapEnumResponseCode code = 2;
+    google.protobuf.Any body = 3;
+}
+
+// ── Enums ──
+
+enum CapEnumResponseCode {
+    FAIL = 0;
+    SUCCESS = 1;
+    NOT_SUPPORTED = 2;
+}
+
+enum CapEnumLogQuerySearchAlgo {
+    SEARCH_ALGO_TIMESTAMP = 0;
+    SEARCH_ALGO_INCREMENT = 1;
+}
+
+enum CapEnumTofTriggerType {
+    TYPE_REQUEST = 0;
+    TYPE_INTERVAL = 1;
+    TYPE_CAP = 2;
+    TYPE_CAP_ON_FLAP = 3;
+    TYPE_CAP_ON_FLAP_OPEN_SIP = 4;
+}
+
+enum CapEnumUvActivationMode {
+    UV_MAINTENANCE = 0;
+    UV_STANDARD = 1;
+    UV_ADVENTURE = 2;
+    UV_STOP = 3;
+}
+
+enum CapEnumFaultType {
+    UV_OVERTEMP = 0;
+    UV_LED_SHORT = 1;
+    UV_LED_OPEN = 2;
+    BATTERY_TEMP = 3;
+    BATTERY_OPEN = 4;
+    BATTERY_SHORT = 5;
+    AMBIENT_LIGHT = 6;
+}
+
+enum CapEnumUiState {
+    UI_ON = 0;
+    UI_FAULT = 1;
+    UI_UV_MAINTENANCE = 2;
+    UI_UV_NORMAL = 3;
+    UI_UV_ADVENTURE = 4;
+    UI_PAIRED = 5;
+    UI_HYDRATION_REMINDER = 6;
+    UI_BATTERY_LOW = 7;
+    UI_CHARGING = 8;
+    UI_CHARGED = 9;
+    UI_UV_INTERLOCK = 10;
+    UI_BOTTLE_CALIBRATION = 11;
+    UI_TOF_MEASUREMENT = 12;
+    UI_TURN_OFF = 13;
+    UI_FACTORY_RESET = 14;
+    UI_ALL_OFF = 15;
+    UI_LOCKED = 16;
+    UI_QC = 17;
+    UI_LAST = 18;
+}
+
+enum CapPowerSavingMode {
+    POWER_SAVING_OFF = 0;
+    POWER_SAVING_ON = 1;
+    POWER_SAVING_AUTO = 2;
+}
+
+// ── Shared types ──
+
+message CapLogQuery {
+    int64 fromTimestamp = 1;
+    int32 limit = 2;
+    CapEnumLogQuerySearchAlgo algo = 3;
+}
+
+// ── Sensor state types ──
+
+message CapUiState {
+    CapEnumUiState value = 1;
+    CapPowerSavingMode powerSavingMode = 2;
+}
+
+message CapTofState {
+    int32 distanceInMillimeter = 1;
+    int32 kcps = 2;
+}
+
+message CapSipSensorState {
+    int32 value = 1;
+    bool state = 2;
+}
+
+message CapHallEffectSensorState {
+    int64 timestamp = 1;
+    bool value = 2;
+}
+
+message CapBottleSensorState {
+    sint32 value = 1;
+    bool state = 2;
+}
+
+message CapAmbientLightSensorState {
+    float value = 1;
+}
+
+message CapAccelerometerState {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+// ── Log entry types ──
+
+message CapTofLog {
+    int64 timestamp = 1;
+    CapEnumTofTriggerType triggerType = 2;
+    int32 distanceInMillimeter = 3;
+    int32 kcps = 4;
+    float uvLedTempInOhm = 5;
+}
+
+message CapActivationLog {
+    int64 timestamp = 1;
+    CapEnumUvActivationMode mode = 2;
+    int32 batterySocInPercentage = 3;
+}
+
+message CapFaultLog {
+    int64 timestamp = 1;
+    CapEnumFaultType type = 2;
+}
+
+message CapAdcLog {
+    int64 timestamp = 1;
+    float batteryInVolt = 2;
+    float batteryTempInOhm = 3;
+    float uvLedInVolt = 4;
+    float uvLedCurrentInMilliamps = 5;
+    float uvLedTempInOhm = 6;
+    float cPcbTempInOhm = 7;
+}
+
+message CapStateLog {
+    int64 timestamp = 1;
+    bool hall = 2;
+    bool bottleDetection = 3;
+    bool ambientLight = 4;
+    bool sipDetection = 5;
+    float bottleDetectionCapacitorValue = 6;
+    float ambientLightSensorValue = 7;
+    float sipDetectionCapacitorSensorValue = 8;
+}
+
+// ── Sensor request wrappers (empty, used for typeUrl resolution) ──
+
+message RequestGetCapUiState {}
+message RequestGetCapTofState {}
+message RequestGetCapSipSensorState {}
+message RequestGetCapHallEffectSensorState {}
+message RequestGetCapBottleSensorState {}
+message RequestGetCapAmbientLightSensorState {}
+message RequestGetCapAccelerometerState {}
+
+// ── Sensor response wrappers ──
+
+message ResponseGetCapUiState {
+    CapEnumUiState state = 1;
+    CapPowerSavingMode powerSavingMode = 2;
+}
+
+message ResponseGetCapTofState {
+    int32 distanceInMillimeter = 1;
+    int32 kcps = 2;
+}
+
+message ResponseGetCapSipSensorState {
+    int32 value = 1;
+    bool state = 2;
+}
+
+message ResponseGetCapHallEffectSensorState {
+    int64 timestamp = 1;
+    bool value = 2;
+}
+
+message ResponseGetCapBottleSensorState {
+    sint32 value = 1;
+    bool state = 2;
+}
+
+message ResponseGetCapAmbientLightSensorState {
+    float value = 1;
+}
+
+message ResponseGetCapAccelerometerState {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+// ── Log request wrappers ──
+
+message RequestGetCapTofLog {
+    CapLogQuery query = 1;
+}
+
+message RequestGetCapStateLog {
+    CapLogQuery query = 1;
+}
+
+message RequestGetCapActivationLog {
+    CapLogQuery query = 1;
+}
+
+message RequestGetCapFaultLog {
+    CapLogQuery query = 1;
+}
+
+message RequestGetActivationCapAdcLog {
+    CapLogQuery query = 1;
+}
+
+message RequestGetChargingCapAdcLog {
+    CapLogQuery query = 1;
+}
+
+// ── Log response wrappers ──
+
+message ResponseGetCapTofLog {
+    repeated CapTofLog entries = 1;
+}
+
+message ResponseGetCapStateLog {
+    repeated CapStateLog entries = 1;
+}
+
+message ResponseGetCapActivationLog {
+    repeated CapActivationLog entries = 1;
+}
+
+message ResponseGetCapFaultLog {
+    repeated CapFaultLog entries = 1;
+}
+
+message ResponseGetActivationCapAdcLog {
+    repeated CapAdcLog entries = 1;
+}
+
+message ResponseGetChargingCapAdcLog {
+    repeated CapAdcLog entries = 1;
+}
