@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:fixnum/fixnum.dart';
 import 'package:protobuf/well_known_types/google/protobuf/any.pb.dart' show Any;
 
 import 'package:bottle/protos/cap.pb.dart';
@@ -14,6 +13,41 @@ class BottleService {
   final _pending = <int, Completer<CapBleResponse>>{};
 
   BottleService(this._connection);
+
+  Uint8List _encodeLogQuery({required int fromTimestamp, int limit = 8}) {
+    final buf = <int>[];
+    if (fromTimestamp != 0) {
+      buf.add(0x08);
+      var v = fromTimestamp;
+      while (v > 0x7F) {
+        buf.add((v & 0x7F) | 0x80);
+        v = v >>> 7;
+      }
+      buf.add(v & 0x7F);
+    }
+    buf.add(0x15);
+    buf.addAll([
+      limit & 0xFF,
+      (limit >> 8) & 0xFF,
+      (limit >> 16) & 0xFF,
+      (limit >> 24) & 0xFF,
+    ]);
+    return Uint8List.fromList(buf);
+  }
+
+  Uint8List _encodeLogRequest({required int fromTimestamp, int limit = 8}) {
+    final query = _encodeLogQuery(fromTimestamp: fromTimestamp, limit: limit);
+    final buf = <int>[];
+    buf.add(0x0a);
+    var len = query.length;
+    while (len > 0x7F) {
+      buf.add((len & 0x7F) | 0x80);
+      len = len >>> 7;
+    }
+    buf.add(len & 0x7F);
+    buf.addAll(query);
+    return Uint8List.fromList(buf);
+  }
 
   void onResponse(List<int> data) {
     final response = CapBleResponse.fromBuffer(data);
@@ -171,15 +205,9 @@ class BottleService {
     required int fromTimestamp,
     int limit = 8,
   }) async {
-    final query = CapLogQuery()
-      ..fromTimestamp = Int64(fromTimestamp)
-      ..limit = limit
-      ..algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP;
-
-    final req = RequestGetCapTofLog()..query = query;
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetCapTofLog',
-      body: Uint8List.fromList(req.writeToBuffer()),
+      body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapTofLog.fromBuffer(r.body.value);
         return data.items.where((e) => e.timestamp.toInt() >= 1000).toList();
@@ -191,15 +219,9 @@ class BottleService {
     required int fromTimestamp,
     int limit = 8,
   }) async {
-    final query = CapLogQuery()
-      ..fromTimestamp = Int64(fromTimestamp)
-      ..limit = limit
-      ..algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP;
-
-    final req = RequestGetCapActivationLog()..query = query;
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetCapActivationLog',
-      body: Uint8List.fromList(req.writeToBuffer()),
+      body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapActivationLog.fromBuffer(r.body.value);
         return data.items;
@@ -211,15 +233,9 @@ class BottleService {
     required int fromTimestamp,
     int limit = 8,
   }) async {
-    final query = CapLogQuery()
-      ..fromTimestamp = Int64(fromTimestamp)
-      ..limit = limit
-      ..algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP;
-
-    final req = RequestGetCapFaultLog()..query = query;
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetCapFaultLog',
-      body: Uint8List.fromList(req.writeToBuffer()),
+      body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapFaultLog.fromBuffer(r.body.value);
         return data.items;
@@ -231,15 +247,9 @@ class BottleService {
     required int fromTimestamp,
     int limit = 8,
   }) async {
-    final query = CapLogQuery()
-      ..fromTimestamp = Int64(fromTimestamp)
-      ..limit = limit
-      ..algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP;
-
-    final req = RequestGetCapStateLog()..query = query;
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetCapStateLog',
-      body: Uint8List.fromList(req.writeToBuffer()),
+      body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapStateLog.fromBuffer(r.body.value);
         return data.items;
@@ -251,15 +261,9 @@ class BottleService {
     required int fromTimestamp,
     int limit = 8,
   }) async {
-    final query = CapLogQuery()
-      ..fromTimestamp = Int64(fromTimestamp)
-      ..limit = limit
-      ..algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP;
-
-    final req = RequestGetActivationCapAdcLog()..query = query;
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetActivationCapAdcLog',
-      body: Uint8List.fromList(req.writeToBuffer()),
+      body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetActivationCapAdcLog.fromBuffer(r.body.value);
         return data.items;
@@ -271,15 +275,9 @@ class BottleService {
     required int fromTimestamp,
     int limit = 8,
   }) async {
-    final query = CapLogQuery()
-      ..fromTimestamp = Int64(fromTimestamp)
-      ..limit = limit
-      ..algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP;
-
-    final req = RequestGetChargingCapAdcLog()..query = query;
     return _sendGetter(
       typeUrl: 'type.googleapis.com/RequestGetChargingCapAdcLog',
-      body: Uint8List.fromList(req.writeToBuffer()),
+      body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetChargingCapAdcLog.fromBuffer(r.body.value);
         return data.items;
@@ -287,3 +285,4 @@ class BottleService {
     );
   }
 }
+

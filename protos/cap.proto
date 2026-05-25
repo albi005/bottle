@@ -86,8 +86,8 @@ enum CapPowerSavingMode {
 // ── Shared types ──
 
 message CapLogQuery {
-    int64 fromTimestamp = 1;
-    int32 limit = 2;
+    uint64 fromTimestamp = 1;
+    fixed32 limit = 2;
     CapEnumLogQuerySearchAlgo algo = 3;
 }
 

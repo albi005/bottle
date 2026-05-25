@@ -7,11 +7,18 @@ import 'package:bottle/ui/pages/home_page.dart';
 
 final bleScanner = BleScanner();
 
-class BottleApp extends StatelessWidget {
+class BottleApp extends StatefulWidget {
   const BottleApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<BottleApp> createState() => _BottleAppState();
+}
+
+class _BottleAppState extends State<BottleApp> {
+  @override
+  void initState() {
+    super.initState();
+    _startIfAdapterReady();
     FlutterBluePlus.adapterState.listen((state) {
       bluetoothAdapterState.value = state;
       if (state == BluetoothAdapterState.on) {
@@ -20,7 +27,16 @@ class BottleApp extends StatelessWidget {
         bleScanner.stopScanning();
       }
     });
+  }
 
+  void _startIfAdapterReady() async {
+    if (await FlutterBluePlus.isSupported) {
+      bleScanner.startScanning();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'LARQ Bottles',
       theme: ThemeData(

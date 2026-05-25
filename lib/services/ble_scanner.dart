@@ -11,6 +11,7 @@ class BleScanner {
   StreamSubscription? _scanSubscription;
 
   void startScanning() {
+    if (_scanSubscription != null) return;
     _scanSubscription = FlutterBluePlus.onScanResults.listen((results) {
       final larqBottles = results.where(
         (r) => r.device.platformName.startsWith('LARQ_'),
