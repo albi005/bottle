@@ -4,6 +4,11 @@ import 'package:signals/signals_flutter.dart';
 import 'package:bottle/state/bottle_controller.dart';
 import 'package:bottle/models/bottle_device.dart';
 
+String _fmtTs(int ts) {
+  final dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
+  return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}. ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+}
+
 class LogSyncCard extends StatelessWidget {
   final BottleController controller;
 
@@ -133,7 +138,7 @@ class LogSyncCard extends StatelessWidget {
         Text(label),
         if (cursor != null) ...[
           const Spacer(),
-          Text('cursor: $cursor',
+          Text(_fmtTs(cursor),
               style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ],
       ]),

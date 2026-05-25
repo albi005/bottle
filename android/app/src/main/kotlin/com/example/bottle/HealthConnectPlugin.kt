@@ -104,7 +104,7 @@ class HealthConnectPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 endTime = endTime,
                 endZoneOffset = ZoneOffset.UTC,
                 volume = Volume.milliliters(volumeMl),
-                metadata = Metadata.autoRecorded(Device(type = Device.TYPE_PHONE)),
+                metadata = Metadata.autoRecorded(Device(type = Device.TYPE_UNKNOWN)),
             )
         }
         if (hydrationRecords.isEmpty()) { result.success(null); return }

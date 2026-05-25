@@ -1267,7 +1267,7 @@ class LogSyncCard extends StatelessWidget {
       Text(label),
       if (cursor != null) ...[
         const Spacer(),
-        Text('cursor: $cursor',
+        Text('${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}. ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}',
           style: TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     ]));
