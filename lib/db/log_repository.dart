@@ -148,4 +148,35 @@ class LogRepository {
     await batch.commit(noResult: true);
     return entries.length;
   }
+
+  Future<int> getHealthSyncTimestamp(String bottleName) async {
+    final result = await _db.rawQuery(
+      'SELECT last_tof_timestamp FROM health_sync WHERE bottle_name = ?',
+      [bottleName],
+    );
+    if (result.isEmpty) return -1;
+    return result.first.values.first as int;
+  }
+
+  Future<void> setHealthSyncTimestamp(String bottleName, int timestamp) async {
+    await _db.insert(
+      'health_sync',
+      {'bottle_name': bottleName, 'last_tof_timestamp': timestamp},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getTofLogsSince(
+    String bottleName,
+    int fromTimestamp, {
+    int limit = 30,
+  }) async {
+    return _db.query(
+      'tof_logs',
+      where: 'bottle_name = ? AND timestamp > ?',
+      whereArgs: [bottleName, fromTimestamp],
+      orderBy: 'timestamp ASC',
+      limit: limit,
+    );
+  }
 }

@@ -18,6 +18,10 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.0
   collection: ^1.18.0
+  flutter_health_connect:
+    git:
+      url: https://github.com/imdzx/flutter_health_connect.git
+      ref: master
 
 dev_dependencies:
   flutter_test:

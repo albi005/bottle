@@ -9,6 +9,7 @@ import 'package:bottle/services/bottle_connection.dart';
 import 'package:bottle/services/bottle_service.dart';
 import 'package:bottle/services/sensor_service.dart';
 import 'package:bottle/services/log_service.dart';
+import 'package:bottle/services/health_sync_service.dart';
 import 'package:bottle/services/refresh_loop.dart';
 import 'package:bottle/db/log_repository.dart';
 
@@ -36,12 +37,17 @@ class BottleController {
   final logTypesSynced = setSignal<String>({});
   final logSyncError = signal<String?>(null);
 
+  final healthSyncError = signal<String?>(null);
+  final healthPermissionsGranted = signal<bool?>(null);
+  final healthAvailable = signal<bool?>(null);
+
   final refreshPhase = signal<RefreshPhase>(RefreshPhase.idle);
   final lastRefreshTime = signal<DateTime?>(null);
 
   BottleConnection? _connection;
   SensorService? _sensorService;
   LogService? _logService;
+  HealthSyncService? _healthSyncService;
   RefreshLoop? _refreshLoop;
   bool _connecting = false;
 
@@ -75,15 +81,18 @@ class BottleController {
       connectionPhase.value = ConnectionPhase.discovering;
       await connection.discoverServices();
 
+      final logRepo = await LogRepository.instance;
       final bottleService = BottleService(connection);
       _sensorService = SensorService(bottleService, this);
-      _logService = LogService(bottleService, await LogRepository.instance, this);
+      _logService = LogService(bottleService, logRepo, this);
+      _healthSyncService = HealthSyncService(logRepo, this);
 
       await connection.subscribeToRx(bottleService.onResponse);
 
       connectionPhase.value = ConnectionPhase.ready;
 
-      _refreshLoop = RefreshLoop(_sensorService!, _logService!, this)
+      _refreshLoop = RefreshLoop(
+          _sensorService!, _logService!, _healthSyncService, this)
         ..start();
     } catch (e) {
       connectionPhase.value = ConnectionPhase.failed;

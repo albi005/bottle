@@ -3,16 +3,23 @@ import 'dart:async';
 import 'package:bottle/models/bottle_device.dart';
 import 'package:bottle/services/sensor_service.dart';
 import 'package:bottle/services/log_service.dart';
+import 'package:bottle/services/health_sync_service.dart';
 import 'package:bottle/state/bottle_controller.dart';
 
 class RefreshLoop {
   final SensorService _sensorService;
   final LogService _logService;
+  final HealthSyncService? _healthSyncService;
   final BottleController _controller;
   Timer? _timer;
   bool _running = false;
 
-  RefreshLoop(this._sensorService, this._logService, this._controller);
+  RefreshLoop(
+    this._sensorService,
+    this._logService,
+    this._healthSyncService,
+    this._controller,
+  );
 
   void start() {
     if (_running) return;
@@ -37,6 +44,20 @@ class RefreshLoop {
 
       _controller.refreshPhase.value = RefreshPhase.syncingLogs;
       await _logService.syncAllLogTypes();
+
+      if (_healthSyncService != null) {
+        final hss = _healthSyncService;
+        _controller.healthSyncError.value = null;
+        final available = await hss.isAvailable();
+        _controller.healthAvailable.value = available;
+        if (available) {
+          final hasPerms = await hss.hasPermissions();
+          _controller.healthPermissionsGranted.value = hasPerms;
+          if (hasPerms) {
+            await hss.syncHydration(bottleName: _controller.name);
+          }
+        }
+      }
 
       _controller.refreshPhase.value = RefreshPhase.idle;
       _controller.lastRefreshTime.value = DateTime.now();

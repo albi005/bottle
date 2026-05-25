@@ -8,7 +8,7 @@ Future<Database> get database async {
   if (_db != null) return _db!;
   final dir = await getApplicationDocumentsDirectory();
   final path = join(dir.path, 'bottle.db');
-  _db = await openDatabase(path, version: 1, onCreate: _onCreate);
+  _db = await openDatabase(path, version: 2, onCreate: _onCreate, onUpgrade: _onUpgrade);
   return _db!;
 }
 
@@ -87,4 +87,23 @@ Future<void> _onCreate(Database db, int version) async {
       UNIQUE(bottle_name, timestamp)
     )
   ''');
+  await db.execute('''
+    CREATE TABLE health_sync (
+      bottle_name TEXT NOT NULL,
+      last_tof_timestamp INTEGER NOT NULL,
+      UNIQUE(bottle_name)
+    )
+  ''');
+}
+
+Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+  if (oldVersion < 2) {
+    await db.execute('''
+      CREATE TABLE health_sync (
+        bottle_name TEXT NOT NULL,
+        last_tof_timestamp INTEGER NOT NULL,
+        UNIQUE(bottle_name)
+      )
+    ''');
+  }
 }
