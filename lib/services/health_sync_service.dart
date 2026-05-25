@@ -3,8 +3,20 @@ import 'package:bottle/services/health_connect.dart';
 import 'package:bottle/state/bottle_controller.dart';
 
 class HealthSyncService {
-  static const _volumePerMm = 3.848;
-  static const _drinkThresholdMm = 2;
+  // 4th-degree polynomial coefficients for PureVis 2 1000ml bottle.
+  // Converts TOF distance (mm, cap-to-water-surface) to volume remaining (ml).
+  // volume_mL = a4·d⁴ + a3·d³ + a2·d² + a1·d + a0
+  // Sourced from LARQ app's hardcoded defaults (fb/f.java).
+  static const double _a4 = -1.1e-6;
+  static const double _a3 = 5.5211e-4;
+  static const double _a2 = -0.08516349;
+  static const double _a1 = -0.2839113;
+  static const double _a0 = 1026.71212239;
+
+  // Default thresholds from LARQ Firebase Remote Config:
+  // cap_drink_threshold_in_milliliter  -> default 25.0 ml
+  static const double _drinkThresholdMl = 25.0;
+  static const double _maxDrinkMl = 500.0;
 
   final LogRepository _repo;
   final BottleController _controller;
@@ -18,6 +30,15 @@ class HealthSyncService {
   Future<bool> requestPermissions() => HealthConnect.requestPermissions();
 
   Future<bool> openSettings() => HealthConnect.openSettings();
+
+  static double _distanceToVolume(int distanceMm) {
+    final d = distanceMm.toDouble();
+    return _a4 * d * d * d * d +
+           _a3 * d * d * d +
+           _a2 * d * d +
+           _a1 * d +
+           _a0;
+  }
 
   Future<void> syncHydration({required String bottleName}) async {
     final lastTs = await _repo.getHealthSyncTimestamp(bottleName);
@@ -44,18 +65,20 @@ class HealthSyncService {
 
       final prevDist = prev['distance_mm'] as int;
       final currDist = curr['distance_mm'] as int;
-      final delta = prevDist - currDist;
       final ts = curr['timestamp'] as int;
       maxTs = ts;
 
-      if (delta >= _drinkThresholdMm) {
-        final volumeMl = delta * _volumePerMm;
+      final prevVol = _distanceToVolume(prevDist);
+      final currVol = _distanceToVolume(currDist);
+      final volumeDelta = prevVol - currVol;
+
+      if (volumeDelta >= _drinkThresholdMl && volumeDelta <= _maxDrinkMl) {
         records.add((
           startTime:
               DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true),
           endTime:
               DateTime.fromMillisecondsSinceEpoch(ts * 1000 + 5000, isUtc: true),
-          volumeMl: volumeMl,
+          volumeMl: volumeDelta,
         ));
       }
     }
