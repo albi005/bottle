@@ -69,7 +69,7 @@ class RefreshLoop {
 
     if (_running &&
         _controller.connectionPhase.value == ConnectionPhase.ready) {
-      _timer = Timer(const Duration(seconds: 10), _runCycle);
+      _timer = Timer(const Duration(seconds: 30), _runCycle);
     }
   }
 }

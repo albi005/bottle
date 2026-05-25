@@ -87,7 +87,7 @@ class LogSyncCard extends StatelessWidget {
           )
         else if (available == null)
           const Text('...', style: TextStyle(fontSize: 11, color: Colors.grey))
-        else if (available != null && !available)
+        else if (!available)
           const Text('unavailable',
               style: TextStyle(fontSize: 11, color: Colors.grey))
         else if (perms == false)

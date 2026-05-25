@@ -1,6 +1,5 @@
-import 'package:flutter_health_connect/flutter_health_connect.dart';
-
 import 'package:bottle/db/log_repository.dart';
+import 'package:bottle/services/health_connect.dart';
 import 'package:bottle/state/bottle_controller.dart';
 
 class HealthSyncService {
@@ -12,27 +11,13 @@ class HealthSyncService {
 
   HealthSyncService(this._repo, this._controller);
 
-  Future<bool> isAvailable() async {
-    final ok = await HealthConnectFactory.isApiSupported();
-    if (!ok) return false;
-    return HealthConnectFactory.isAvailable();
-  }
+  Future<bool> isAvailable() => HealthConnect.isAvailable();
 
-  Future<bool> hasPermissions() async {
-    return HealthConnectFactory.hasPermissions(
-      [HealthConnectDataType.Hydration],
-    );
-  }
+  Future<bool> hasPermissions() => HealthConnect.hasPermissions();
 
-  Future<bool> requestPermissions() async {
-    return HealthConnectFactory.requestPermissions(
-      [HealthConnectDataType.Hydration],
-    );
-  }
+  Future<bool> requestPermissions() => HealthConnect.requestPermissions();
 
-  Future<bool> openSettings() async {
-    return HealthConnectFactory.openHealthConnectSettings();
-  }
+  Future<bool> openSettings() => HealthConnect.openSettings();
 
   Future<void> syncHydration({required String bottleName}) async {
     final lastTs = await _repo.getHealthSyncTimestamp(bottleName);
@@ -46,7 +31,11 @@ class HealthSyncService {
       return;
     }
 
-    final toSync = <HydrationRecord>[];
+    final records = <({
+      DateTime startTime,
+      DateTime endTime,
+      double volumeMl,
+    })>[];
     int maxTs = lastTs;
 
     for (int i = 1; i < rows.length; i++) {
@@ -68,10 +57,12 @@ class HealthSyncService {
       if (delta > 0) {
         final volumeMl = delta * _volumePerMm;
         final ts = curr['timestamp'] as int;
-        toSync.add(HydrationRecord(
-          startTime: DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true),
-          endTime: DateTime.fromMillisecondsSinceEpoch(ts * 1000 + 5000, isUtc: true),
-          volume: Volume.milliliters(volumeMl),
+        records.add((
+          startTime:
+              DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true),
+          endTime:
+              DateTime.fromMillisecondsSinceEpoch(ts * 1000 + 5000, isUtc: true),
+          volumeMl: volumeMl,
         ));
         maxTs = ts;
       } else {
@@ -79,14 +70,12 @@ class HealthSyncService {
       }
     }
 
-    if (toSync.isNotEmpty) {
+    if (records.isNotEmpty) {
       try {
-        await HealthConnectFactory.writeData(
-          type: HealthConnectDataType.Hydration,
-          data: toSync,
-        );
+        await HealthConnect.writeHydration(records);
       } catch (e) {
-        _controller.healthSyncError.value = 'Health Connect write failed: $e';
+        _controller.healthSyncError.value =
+            'Health Connect write failed: $e';
         return;
       }
     }
