@@ -114,4 +114,8 @@ class BottleController {
     connectionPhase.value = ConnectionPhase.notFound;
     rssi.value = null;
   }
+
+  Future<void> openHealthSettings() async {
+    await _healthSyncService?.requestPermissions();
+  }
 }

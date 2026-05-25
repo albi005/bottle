@@ -169,7 +169,7 @@ class LogRepository {
   Future<List<Map<String, dynamic>>> getTofLogsSince(
     String bottleName,
     int fromTimestamp, {
-    int limit = 30,
+    int limit = 100,
   }) async {
     return _db.query(
       'tof_logs',

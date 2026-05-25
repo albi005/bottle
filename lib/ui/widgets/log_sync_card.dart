@@ -69,37 +69,46 @@ class LogSyncCard extends StatelessWidget {
       final perms = controller.healthPermissionsGranted.value;
       final error = controller.healthSyncError.value;
 
-      return Row(children: [
-        const Icon(Icons.water_drop, size: 14),
-        const SizedBox(width: 4),
-        Text('Health Connect',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: error != null ? Colors.red : null,
-            )),
-        const Spacer(),
-        if (error != null)
-          Flexible(
-            child: Text('error',
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: Colors.red)),
-          )
-        else if (available == null)
-          const Text('...', style: TextStyle(fontSize: 11, color: Colors.grey))
-        else if (!available)
-          const Text('unavailable',
-              style: TextStyle(fontSize: 11, color: Colors.grey))
-        else if (perms == false)
-          const Text('denied',
-              style: TextStyle(fontSize: 11, color: Colors.orange))
-        else if (perms == true)
-          const Text('synced',
-              style: TextStyle(fontSize: 11, color: Colors.green))
-        else
-          const Text('checking',
-              style: TextStyle(fontSize: 11, color: Colors.grey)),
-      ]);
+      return InkWell(
+        onTap: (available == true && perms == false)
+            ? () => controller.openHealthSettings()
+            : null,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            const Icon(Icons.water_drop, size: 14),
+            const SizedBox(width: 4),
+            Text('Health Connect',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: error != null ? Colors.red : null,
+                )),
+            const Spacer(),
+            if (error != null)
+              Flexible(
+                child: Text('error',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: Colors.red)),
+              )
+            else if (available == null)
+              const Text('...', style: TextStyle(fontSize: 11, color: Colors.grey))
+            else if (!available)
+              const Text('unavailable',
+                  style: TextStyle(fontSize: 11, color: Colors.grey))
+            else if (perms == false)
+              const Text('denied — tap to open',
+                  style: TextStyle(fontSize: 11, color: Colors.orange))
+            else if (perms == true)
+              const Text('synced',
+                  style: TextStyle(fontSize: 11, color: Colors.green))
+            else
+              const Text('checking',
+                  style: TextStyle(fontSize: 11, color: Colors.grey)),
+          ]),
+        ),
+      );
     });
   }
 
