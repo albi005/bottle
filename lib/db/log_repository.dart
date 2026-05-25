@@ -23,6 +23,29 @@ class LogRepository {
     return max != null ? (max as int) + 1 : 0;
   }
 
+  Future<List<Map<String, dynamic>>> getLogs(
+    String table,
+    String bottleName, {
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    return _db.query(table,
+      where: 'bottle_name = ?',
+      whereArgs: [bottleName],
+      orderBy: 'timestamp DESC',
+      limit: limit,
+      offset: offset,
+    );
+  }
+
+  Future<int> getLogCount(String table, String bottleName) async {
+    final result = await _db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM $table WHERE bottle_name = ?',
+      [bottleName],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
   Future<int> insertTofLogs(String bottleName, List<CapTofLog> entries) async {
     final batch = _db.batch();
     for (final e in entries) {
