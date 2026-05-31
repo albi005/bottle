@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:protobuf/protobuf.dart';
 
+import 'package:bottle/di/injection.dart';
 import 'package:bottle/state/bottle_controller.dart';
 import 'package:bottle/db/log_repository.dart';
 import 'package:bottle/protos/cap.pbenum.dart';
@@ -82,7 +83,7 @@ class _LogListViewState extends State<LogListView> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
-      final repo = await LogRepository.instance;
+      final repo = getIt<LogRepository>();
       final rows = await repo.getLogs(_table, _bottleName,
           limit: _pageSize, offset: _entries.length);
       if (!_alive || !mounted) return;
@@ -105,7 +106,7 @@ class _LogListViewState extends State<LogListView> {
     final existingMaxTs =
         _entries.isEmpty ? 0 : (_entries.first['timestamp'] as int? ?? 0);
     try {
-      final repo = await LogRepository.instance;
+      final repo = getIt<LogRepository>();
       final latest = await repo.getLogs(_table, _bottleName, limit: _pageSize);
       if (!_alive || !mounted) return;
 

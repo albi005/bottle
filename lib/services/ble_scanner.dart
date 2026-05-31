@@ -1,14 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:injectable/injectable.dart';
 
+import 'package:bottle/db/log_repository.dart';
 import 'package:bottle/models/bottle_device.dart';
 import 'package:bottle/state/bottle_controller.dart';
 import 'package:bottle/state/app_state.dart';
 
+@singleton
 class BleScanner {
   static final nusServiceUuid = Guid('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+  final LogRepository _logRepo;
   StreamSubscription? _scanSubscription;
+
+  BleScanner(this._logRepo);
 
   void startScanning() {
     if (_scanSubscription != null) return;
@@ -42,6 +48,7 @@ class BleScanner {
           final controller = BottleController(
             name: name,
             remoteId: result.device.remoteId.toString(),
+            logRepo: _logRepo,
           )..updateScan(result);
 
           activeBottles.add(controller);

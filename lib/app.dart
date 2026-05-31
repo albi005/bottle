@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import 'package:bottle/di/injection.dart';
 import 'package:bottle/state/app_state.dart';
 import 'package:bottle/services/ble_scanner.dart';
 import 'package:bottle/ui/pages/home_page.dart';
-
-final bleScanner = BleScanner();
 
 class BottleApp extends StatefulWidget {
   const BottleApp({super.key});
@@ -15,23 +14,26 @@ class BottleApp extends StatefulWidget {
 }
 
 class _BottleAppState extends State<BottleApp> {
+  late final BleScanner _bleScanner;
+
   @override
   void initState() {
     super.initState();
+    _bleScanner = getIt<BleScanner>();
     _startIfAdapterReady();
     FlutterBluePlus.adapterState.listen((state) {
       bluetoothAdapterState.value = state;
       if (state == BluetoothAdapterState.on) {
-        bleScanner.startScanning();
+        _bleScanner.startScanning();
       } else {
-        bleScanner.stopScanning();
+        _bleScanner.stopScanning();
       }
     });
   }
 
   void _startIfAdapterReady() async {
     if (await FlutterBluePlus.isSupported) {
-      bleScanner.startScanning();
+      _bleScanner.startScanning();
     }
   }
 

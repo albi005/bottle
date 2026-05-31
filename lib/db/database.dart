@@ -1,15 +1,22 @@
+import 'package:injectable/injectable.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
-Database? _db;
-
-Future<Database> get database async {
-  if (_db != null) return _db!;
-  final dir = await getApplicationDocumentsDirectory();
-  final path = join(dir.path, 'bottle.db');
-  _db = await openDatabase(path, version: 2, onCreate: _onCreate, onUpgrade: _onUpgrade);
-  return _db!;
+@module
+abstract class DatabaseModule {
+  @preResolve
+  @singleton
+  Future<Database> provideDatabase() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final path = join(dir.path, 'bottle.db');
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
+  }
 }
 
 Future<void> _onCreate(Database db, int version) async {

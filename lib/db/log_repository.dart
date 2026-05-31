@@ -1,18 +1,13 @@
+import 'package:injectable/injectable.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:bottle/db/database.dart';
+
 import 'package:bottle/protos/cap.pb.dart';
 
+@singleton
 class LogRepository {
   final Database _db;
+
   LogRepository(this._db);
-
-  static LogRepository? _instance;
-
-  static Future<LogRepository> get instance async {
-    if (_instance != null) return _instance!;
-    _instance = LogRepository(await database);
-    return _instance!;
-  }
 
   Future<int> getLatestTimestamp(String table, String bottleName) async {
     final result = await _db.rawQuery(
@@ -29,7 +24,8 @@ class LogRepository {
     int limit = 30,
     int offset = 0,
   }) async {
-    return _db.query(table,
+    return _db.query(
+      table,
       where: 'bottle_name = ?',
       whereArgs: [bottleName],
       orderBy: 'timestamp DESC',
@@ -104,7 +100,8 @@ class LogRepository {
         'sip_detection': e.sipDetection ? 1 : 0,
         'bottle_detection_cap_value': e.bottleDetectionCapacitorValue,
         'ambient_light_sensor_value': e.ambientLightSensorValue,
-        'sip_detection_cap_sensor_value': e.sipDetectionCapacitorSensorValue,
+        'sip_detection_cap_sensor_value':
+            e.sipDetectionCapacitorSensorValue,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
     await batch.commit(noResult: true);

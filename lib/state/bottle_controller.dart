@@ -16,6 +16,7 @@ import 'package:bottle/db/log_repository.dart';
 class BottleController {
   final String name;
   final String remoteId;
+  final LogRepository _logRepo;
 
   final connectionPhase = signal<ConnectionPhase>(ConnectionPhase.notFound);
   final connectionError = signal<String?>(null);
@@ -51,7 +52,11 @@ class BottleController {
   RefreshLoop? _refreshLoop;
   bool _connecting = false;
 
-  BottleController({required this.name, required this.remoteId});
+  BottleController({
+    required this.name,
+    required this.remoteId,
+    required LogRepository logRepo,
+  }) : _logRepo = logRepo;
 
   void updateScan(ScanResult result) {
     scanResult.value = result;
@@ -81,11 +86,10 @@ class BottleController {
       connectionPhase.value = ConnectionPhase.discovering;
       await connection.discoverServices();
 
-      final logRepo = await LogRepository.instance;
       final bottleService = BottleService(connection);
       _sensorService = SensorService(bottleService, this);
-      _logService = LogService(bottleService, logRepo, this);
-      _healthSyncService = HealthSyncService(logRepo, this);
+      _logService = LogService(bottleService, _logRepo, this);
+      _healthSyncService = HealthSyncService(_logRepo, this);
 
       await connection.subscribeToRx(bottleService.onResponse);
 
