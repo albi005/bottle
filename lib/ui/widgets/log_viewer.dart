@@ -9,8 +9,10 @@ import 'package:bottle/protos/cap.pbenum.dart';
 String _fmtTimestamp(dynamic ts) {
   final s = (ts is int) ? ts : int.tryParse(ts.toString()) ?? 0;
   if (s <= 0) return 'unknown';
-  final dt =
-      DateTime.fromMillisecondsSinceEpoch(s * 1000, isUtc: true).toLocal();
+  final dt = DateTime.fromMillisecondsSinceEpoch(
+    s * 1000,
+    isUtc: true,
+  ).toLocal();
   return '${dt.year}-${_pad(dt.month)}-${_pad(dt.day)} '
       '${_pad(dt.hour)}:${_pad(dt.minute)}:${_pad(dt.second)}';
 }
@@ -84,8 +86,12 @@ class _LogListViewState extends State<LogListView> {
     setState(() => _isLoading = true);
     try {
       final repo = getIt<LogRepository>();
-      final rows = await repo.getLogs(_table, _bottleName,
-          limit: _pageSize, offset: _entries.length);
+      final rows = await repo.getLogs(
+        _table,
+        _bottleName,
+        limit: _pageSize,
+        offset: _entries.length,
+      );
       if (!_alive || !mounted) return;
       setState(() {
         _entries.addAll(rows);
@@ -103,8 +109,9 @@ class _LogListViewState extends State<LogListView> {
     if (synced.length == _syncedSetSize) return;
     _syncedSetSize = synced.length;
 
-    final existingMaxTs =
-        _entries.isEmpty ? 0 : (_entries.first['timestamp'] as int? ?? 0);
+    final existingMaxTs = _entries.isEmpty
+        ? 0
+        : (_entries.first['timestamp'] as int? ?? 0);
     try {
       final repo = getIt<LogRepository>();
       final latest = await repo.getLogs(_table, _bottleName, limit: _pageSize);
@@ -129,7 +136,9 @@ class _LogListViewState extends State<LogListView> {
         child: Text(
           error != null ? 'Sync error' : 'No entries',
           style: TextStyle(
-            color: error != null ? Colors.red : Colors.grey,
+            color: error != null
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       );
@@ -276,27 +285,35 @@ class ChargingAdcLogView extends StatelessWidget {
 }
 
 Widget _adcEntryBuilder(Map<String, dynamic> e) => _logCard([
-      _fmtTimestamp(e['timestamp']),
-      'Batt: ${e['battery_volt']}V ${e['battery_temp_ohm']}\u03a9 '
-          '| UV: ${e['uv_led_volt']}V ${e['uv_led_current_ma']}mA '
-          '${e['uv_led_temp_ohm']}\u03a9 '
-          '| PCB: ${e['c_pcb_temp_ohm']}\u03a9',
-    ]);
+  _fmtTimestamp(e['timestamp']),
+  'Batt: ${e['battery_volt']}V ${e['battery_temp_ohm']}\u03a9 '
+      '| UV: ${e['uv_led_volt']}V ${e['uv_led_current_ma']}mA '
+      '${e['uv_led_temp_ohm']}\u03a9 '
+      '| PCB: ${e['c_pcb_temp_ohm']}\u03a9',
+]);
 
 Widget _logCard(List<String> lines) => Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Column(
+  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+  child: Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    child: Builder(
+      builder: (context) {
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (final line in lines)
-              Text(line,
-                  style: TextStyle(
-                    fontSize: line == lines.first ? 11 : 13,
-                    color: line == lines.first ? Colors.grey : null,
-                  )),
+              Text(
+                line,
+                style: TextStyle(
+                  fontSize: line == lines.first ? 11 : 13,
+                  color: line == lines.first
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                      : null,
+                ),
+              ),
           ],
-        ),
-      ),
-    );
+        );
+      },
+    ),
+  ),
+);

@@ -1,6 +1,13 @@
 import 'package:bottle/protos/cap.pbenum.dart';
 
-enum ConnectionPhase { notFound, visible, connecting, discovering, ready, failed }
+enum ConnectionPhase {
+  notFound,
+  visible,
+  connecting,
+  discovering,
+  ready,
+  failed,
+}
 
 enum LogSyncPhase { idle, syncing, done, error }
 

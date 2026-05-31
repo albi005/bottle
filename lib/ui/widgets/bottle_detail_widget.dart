@@ -21,50 +21,58 @@ class BottleDetailWidget extends StatelessWidget {
         return Center(child: Text('Bottle is ${phase.name}'));
       }
 
-      return Column(children: [
-        Flexible(
-          flex: 4,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Column(children: [
-              SensorDashboard(controller: controller),
-              const Divider(),
-              LogSyncCard(controller: controller),
-            ]),
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          flex: 6,
-          child: DefaultTabController(
-            length: 6,
-            child: Column(children: [
-              const TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                tabs: [
-                  Tab(text: 'TOF'),
-                  Tab(text: 'Activ.'),
-                  Tab(text: 'Fault'),
-                  Tab(text: 'State'),
-                  Tab(text: 'ADC Act'),
-                  Tab(text: 'ADC Chg'),
+      return Column(
+        children: [
+          Flexible(
+            flex: 4,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                children: [
+                  SensorDashboard(controller: controller),
+                  const Divider(),
+                  LogSyncCard(controller: controller),
                 ],
               ),
-              Expanded(
-                child: TabBarView(children: [
-                  TofLogView(controller: controller),
-                  ActivationLogView(controller: controller),
-                  FaultLogView(controller: controller),
-                  StateLogView(controller: controller),
-                  ActivationAdcLogView(controller: controller),
-                  ChargingAdcLogView(controller: controller),
-                ]),
-              ),
-            ]),
+            ),
           ),
-        ),
-      ]);
+          const Divider(height: 1),
+          Expanded(
+            flex: 6,
+            child: DefaultTabController(
+              length: 6,
+              child: Column(
+                children: [
+                  const TabBar(
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    tabs: [
+                      Tab(text: 'TOF'),
+                      Tab(text: 'Activ.'),
+                      Tab(text: 'Fault'),
+                      Tab(text: 'State'),
+                      Tab(text: 'ADC Act'),
+                      Tab(text: 'ADC Chg'),
+                    ],
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        TofLogView(controller: controller),
+                        ActivationLogView(controller: controller),
+                        FaultLogView(controller: controller),
+                        StateLogView(controller: controller),
+                        ActivationAdcLogView(controller: controller),
+                        ChargingAdcLogView(controller: controller),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
     });
   }
 }

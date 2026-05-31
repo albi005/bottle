@@ -33,11 +33,7 @@ class HealthSyncService {
 
   static double _distanceToVolume(int distanceMm) {
     final d = distanceMm.toDouble();
-    return _a4 * d * d * d * d +
-           _a3 * d * d * d +
-           _a2 * d * d +
-           _a1 * d +
-           _a0;
+    return _a4 * d * d * d * d + _a3 * d * d * d + _a2 * d * d + _a1 * d + _a0;
   }
 
   Future<void> syncHydration({required String bottleName}) async {
@@ -47,16 +43,15 @@ class HealthSyncService {
     if (rows.length < 2) {
       if (rows.isNotEmpty) {
         await _repo.setHealthSyncTimestamp(
-            bottleName, rows.last['timestamp'] as int);
+          bottleName,
+          rows.last['timestamp'] as int,
+        );
       }
       return;
     }
 
-    final records = <({
-      DateTime startTime,
-      DateTime endTime,
-      double volumeMl,
-    })>[];
+    final records =
+        <({DateTime startTime, DateTime endTime, double volumeMl})>[];
     int maxTs = lastTs;
 
     for (int i = 1; i < rows.length; i++) {
@@ -74,10 +69,14 @@ class HealthSyncService {
 
       if (volumeDelta >= _drinkThresholdMl && volumeDelta <= _maxDrinkMl) {
         records.add((
-          startTime:
-              DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true),
-          endTime:
-              DateTime.fromMillisecondsSinceEpoch(ts * 1000 + 5000, isUtc: true),
+          startTime: DateTime.fromMillisecondsSinceEpoch(
+            ts * 1000,
+            isUtc: true,
+          ),
+          endTime: DateTime.fromMillisecondsSinceEpoch(
+            ts * 1000 + 5000,
+            isUtc: true,
+          ),
           volumeMl: volumeDelta,
         ));
       }
@@ -87,8 +86,7 @@ class HealthSyncService {
       try {
         await HealthConnect.writeHydration(records);
       } catch (e) {
-        _controller.healthSyncError.value =
-            'Health Connect write failed: $e';
+        _controller.healthSyncError.value = 'Health Connect write failed: $e';
         return;
       }
     }

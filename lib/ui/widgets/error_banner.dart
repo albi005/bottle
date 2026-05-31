@@ -13,14 +13,9 @@ class ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialBanner(
-      backgroundColor: Colors.red.shade100,
+      backgroundColor: Theme.of(context).colorScheme.errorContainer,
       content: Text(message),
-      actions: [
-        TextButton(
-          onPressed: onDismiss,
-          child: const Text('Dismiss'),
-        ),
-      ],
+      actions: [TextButton(onPressed: onDismiss, child: const Text('Dismiss'))],
     );
   }
 }

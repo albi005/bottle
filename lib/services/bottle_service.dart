@@ -32,8 +32,10 @@ class BottleService {
       (limit >> 16) & 0xFF,
       (limit >> 24) & 0xFF,
     ]);
-    print('[BTL] _encodeLogQuery from=$fromTimestamp limit=$limit => '
-        '${buf.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
+    print(
+      '[BTL] _encodeLogQuery from=$fromTimestamp limit=$limit => '
+      '${buf.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}',
+    );
     return Uint8List.fromList(buf);
   }
 
@@ -52,8 +54,10 @@ class BottleService {
   }
 
   void onResponse(List<int> data) {
-    print('[BTL] onResponse ${data.length} bytes: '
-        '${data.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
+    print(
+      '[BTL] onResponse ${data.length} bytes: '
+      '${data.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}',
+    );
     _buffer.addAll(data);
 
     _reassemblyTimer?.cancel();
@@ -83,13 +87,12 @@ class BottleService {
     _pending[requestId] = completer;
 
     final bytes = Uint8List.fromList(request.writeToBuffer());
-    print('[BTL] _sendRequest id=$requestId '
-        '${bytes.length} bytes: '
-        '${bytes.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
-    await _connection.txChar!.write(
-      bytes,
-      withoutResponse: true,
+    print(
+      '[BTL] _sendRequest id=$requestId '
+      '${bytes.length} bytes: '
+      '${bytes.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}',
     );
+    await _connection.txChar!.write(bytes, withoutResponse: true);
 
     return completer.future.timeout(
       const Duration(seconds: 10),
@@ -109,9 +112,13 @@ class BottleService {
 
     final response = await _sendRequest(request);
 
-    print('[BTL] _sendGetter typeUrl=$typeUrl code=${response.code} '
-        'bodySize=${response.body.value.length}');
-    print('[BTL]   body hex=${response.body.value.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}');
+    print(
+      '[BTL] _sendGetter typeUrl=$typeUrl code=${response.code} '
+      'bodySize=${response.body.value.length}',
+    );
+    print(
+      '[BTL]   body hex=${response.body.value.map((b) => b.toRadixString(16).padLeft(2, "0")).join(" ")}',
+    );
 
     if (response.code != CapEnumResponseCode.SUCCESS) {
       throw Exception('Request failed: code=${response.code} typeUrl=$typeUrl');
@@ -165,7 +172,9 @@ class BottleService {
       typeUrl: 'type.googleapis.com/RequestGetCapHallEffectSensorState',
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
-        final data = ResponseGetCapHallEffectSensorState.fromBuffer(r.body.value);
+        final data = ResponseGetCapHallEffectSensorState.fromBuffer(
+          r.body.value,
+        );
         return HallEffectData(
           timestamp: data.state.timestamp.toInt(),
           value: data.state.value,
@@ -192,7 +201,9 @@ class BottleService {
       typeUrl: 'type.googleapis.com/RequestGetCapAmbientLightSensorState',
       body: Uint8List.fromList(req.writeToBuffer()),
       decoder: (r) {
-        final data = ResponseGetCapAmbientLightSensorState.fromBuffer(r.body.value);
+        final data = ResponseGetCapAmbientLightSensorState.fromBuffer(
+          r.body.value,
+        );
         return data.state.value;
       },
     );
@@ -211,7 +222,8 @@ class BottleService {
   }
 
   Future<int> getBatteryLevel() async {
-    if (_connection.batteryChar == null) throw StateError('Battery characteristic not found');
+    if (_connection.batteryChar == null)
+      throw StateError('Battery characteristic not found');
     final raw = await _connection.batteryChar!.read();
     return raw[0];
   }
@@ -237,8 +249,12 @@ class BottleService {
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapTofLog.fromBuffer(r.body.value);
-        final items = data.items.where((e) => e.timestamp.toInt() >= 1000).toList();
-        print('[BTL] getTofLogPage from=$fromTimestamp got ${items.length} items');
+        final items = data.items
+            .where((e) => e.timestamp.toInt() >= 1000)
+            .toList();
+        print(
+          '[BTL] getTofLogPage from=$fromTimestamp got ${items.length} items',
+        );
         return items;
       },
     );
@@ -253,7 +269,9 @@ class BottleService {
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapActivationLog.fromBuffer(r.body.value);
-        print('[BTL] getActivationLogPage from=$fromTimestamp got ${data.items.length} items');
+        print(
+          '[BTL] getActivationLogPage from=$fromTimestamp got ${data.items.length} items',
+        );
         return data.items;
       },
     );
@@ -268,7 +286,9 @@ class BottleService {
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapFaultLog.fromBuffer(r.body.value);
-        print('[BTL] getFaultLogPage from=$fromTimestamp got ${data.items.length} items');
+        print(
+          '[BTL] getFaultLogPage from=$fromTimestamp got ${data.items.length} items',
+        );
         return data.items;
       },
     );
@@ -283,7 +303,9 @@ class BottleService {
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetCapStateLog.fromBuffer(r.body.value);
-        print('[BTL] getStateLogPage from=$fromTimestamp got ${data.items.length} items');
+        print(
+          '[BTL] getStateLogPage from=$fromTimestamp got ${data.items.length} items',
+        );
         return data.items;
       },
     );
@@ -298,7 +320,9 @@ class BottleService {
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetActivationCapAdcLog.fromBuffer(r.body.value);
-        print('[BTL] getActivationAdcLogPage from=$fromTimestamp got ${data.items.length} items');
+        print(
+          '[BTL] getActivationAdcLogPage from=$fromTimestamp got ${data.items.length} items',
+        );
         return data.items;
       },
     );
@@ -313,10 +337,11 @@ class BottleService {
       body: _encodeLogRequest(fromTimestamp: fromTimestamp, limit: limit),
       decoder: (r) {
         final data = ResponseGetChargingCapAdcLog.fromBuffer(r.body.value);
-        print('[BTL] getChargingAdcLogPage from=$fromTimestamp got ${data.items.length} items');
+        print(
+          '[BTL] getChargingAdcLogPage from=$fromTimestamp got ${data.items.length} items',
+        );
         return data.items;
       },
     );
   }
 }
-

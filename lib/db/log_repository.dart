@@ -59,7 +59,9 @@ class LogRepository {
   }
 
   Future<int> insertActivationLogs(
-      String bottleName, List<CapActivationLog> entries) async {
+    String bottleName,
+    List<CapActivationLog> entries,
+  ) async {
     final batch = _db.batch();
     for (final e in entries) {
       batch.insert('activation_logs', {
@@ -74,7 +76,9 @@ class LogRepository {
   }
 
   Future<int> insertFaultLogs(
-      String bottleName, List<CapFaultLog> entries) async {
+    String bottleName,
+    List<CapFaultLog> entries,
+  ) async {
     final batch = _db.batch();
     for (final e in entries) {
       batch.insert('fault_logs', {
@@ -88,7 +92,9 @@ class LogRepository {
   }
 
   Future<int> insertStateLogs(
-      String bottleName, List<CapStateLog> entries) async {
+    String bottleName,
+    List<CapStateLog> entries,
+  ) async {
     final batch = _db.batch();
     for (final e in entries) {
       batch.insert('state_logs', {
@@ -100,8 +106,7 @@ class LogRepository {
         'sip_detection': e.sipDetection ? 1 : 0,
         'bottle_detection_cap_value': e.bottleDetectionCapacitorValue,
         'ambient_light_sensor_value': e.ambientLightSensorValue,
-        'sip_detection_cap_sensor_value':
-            e.sipDetectionCapacitorSensorValue,
+        'sip_detection_cap_sensor_value': e.sipDetectionCapacitorSensorValue,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
     await batch.commit(noResult: true);
@@ -109,7 +114,9 @@ class LogRepository {
   }
 
   Future<int> insertActivationAdcLogs(
-      String bottleName, List<CapAdcLog> entries) async {
+    String bottleName,
+    List<CapAdcLog> entries,
+  ) async {
     final batch = _db.batch();
     for (final e in entries) {
       batch.insert('activation_adc_logs', {
@@ -128,7 +135,9 @@ class LogRepository {
   }
 
   Future<int> insertChargingAdcLogs(
-      String bottleName, List<CapAdcLog> entries) async {
+    String bottleName,
+    List<CapAdcLog> entries,
+  ) async {
     final batch = _db.batch();
     for (final e in entries) {
       batch.insert('charging_adc_logs', {
@@ -156,11 +165,10 @@ class LogRepository {
   }
 
   Future<void> setHealthSyncTimestamp(String bottleName, int timestamp) async {
-    await _db.insert(
-      'health_sync',
-      {'bottle_name': bottleName, 'last_tof_timestamp': timestamp},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('health_sync', {
+      'bottle_name': bottleName,
+      'last_tof_timestamp': timestamp,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, dynamic>>> getTofLogsSince(

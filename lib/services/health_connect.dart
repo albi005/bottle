@@ -9,7 +9,9 @@ class HealthConnect {
   }
 
   static Future<bool> hasPermissions() async {
-    return _channel.invokeMethod<bool>('hasPermissions').then((v) => v ?? false);
+    return _channel
+        .invokeMethod<bool>('hasPermissions')
+        .then((v) => v ?? false);
   }
 
   static Future<bool> requestPermissions() async {
@@ -23,15 +25,17 @@ class HealthConnect {
   }
 
   static Future<void> writeHydration(
-      List<({DateTime startTime, DateTime endTime, double volumeMl})>
-          records) async {
+    List<({DateTime startTime, DateTime endTime, double volumeMl})> records,
+  ) async {
     await _channel.invokeMethod('writeHydration', {
       'records': records
-          .map((r) => {
-                'startTime': r.startTime.toUtc().toIso8601String(),
-                'endTime': r.endTime.toUtc().toIso8601String(),
-                'volumeMl': r.volumeMl,
-              })
+          .map(
+            (r) => {
+              'startTime': r.startTime.toUtc().toIso8601String(),
+              'endTime': r.endTime.toUtc().toIso8601String(),
+              'volumeMl': r.volumeMl,
+            },
+          )
           .toList(),
     });
   }

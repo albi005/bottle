@@ -30,15 +30,22 @@ class BottleListTile extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              _phaseIcon(phase),
-              const SizedBox(width: 4),
-              Text(phase.name),
-              if (rssi != null) Text('  RSSI: $rssi dBm'),
-            ]),
+            Row(
+              children: [
+                _phaseIcon(phase),
+                const SizedBox(width: 4),
+                Text(phase.name),
+                if (rssi != null) Text('  RSSI: $rssi dBm'),
+              ],
+            ),
             if (error != null)
-              Text('Error: $error',
-                  style: const TextStyle(color: Colors.red, fontSize: 12)),
+              Text(
+                'Error: $error',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
             if (phase == ConnectionPhase.ready)
               Text(
                 switch (refresh) {
@@ -47,26 +54,32 @@ class BottleListTile extends StatelessWidget {
                   RefreshPhase.error => 'Refresh error',
                   _ => 'Idle',
                 },
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
           ],
         ),
         trailing: switch (phase) {
-          ConnectionPhase.connecting || ConnectionPhase.discovering =>
-            const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2)),
+          ConnectionPhase.connecting ||
+          ConnectionPhase.discovering => const SizedBox.square(
+            dimension: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
           ConnectionPhase.ready => IconButton(
-              icon: const Icon(Icons.link_off),
-              onPressed: () => controller.disconnect()),
+            icon: const Icon(Icons.link_off),
+            onPressed: () => controller.disconnect(),
+          ),
           ConnectionPhase.visible || ConnectionPhase.failed => IconButton(
-              icon: Icon(phase == ConnectionPhase.failed
-                  ? Icons.refresh
-                  : Icons.bluetooth),
-              onPressed: () {
-                final sr = controller.scanResult.value;
-                if (sr != null) controller.connect(sr);
-              }),
+            icon: Icon(
+              phase == ConnectionPhase.failed ? Icons.refresh : Icons.bluetooth,
+            ),
+            onPressed: () {
+              final sr = controller.scanResult.value;
+              if (sr != null) controller.connect(sr);
+            },
+          ),
           _ => null,
         },
         onTap: onTap,
@@ -74,16 +87,12 @@ class BottleListTile extends StatelessWidget {
     });
   }
 
-  Widget _phaseIcon(ConnectionPhase phase) => Icon(
-        switch (phase) {
-          ConnectionPhase.visible => Icons.bluetooth_searching,
-          ConnectionPhase.connecting ||
-          ConnectionPhase.discovering =>
-            Icons.bluetooth_connected,
-          ConnectionPhase.ready => Icons.check_circle,
-          ConnectionPhase.failed => Icons.error,
-          ConnectionPhase.notFound => Icons.bluetooth_disabled,
-        },
-        size: 16,
-      );
+  Widget _phaseIcon(ConnectionPhase phase) => Icon(switch (phase) {
+    ConnectionPhase.visible => Icons.bluetooth_searching,
+    ConnectionPhase.connecting ||
+    ConnectionPhase.discovering => Icons.bluetooth_connected,
+    ConnectionPhase.ready => Icons.check_circle,
+    ConnectionPhase.failed => Icons.error,
+    ConnectionPhase.notFound => Icons.bluetooth_disabled,
+  }, size: 16);
 }

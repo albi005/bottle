@@ -11,10 +11,7 @@ class SensorService {
   SensorService(this._bottleService, this._controller);
 
   Future<void> refreshAllSensors() async {
-    await _queryOne(
-      _controller.uiState,
-      () => _bottleService.getUiState(),
-    );
+    await _queryOne(_controller.uiState, () => _bottleService.getUiState());
     await _queryOne(
       _controller.tofDistance,
       () => _bottleService.getTofDistance(),

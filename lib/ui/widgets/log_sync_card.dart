@@ -37,30 +37,39 @@ class LogSyncCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Log Sync',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Log Sync',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 4),
               switch (phase) {
-                LogSyncPhase.idle => const Text('Idle',
-                    style: TextStyle(color: Colors.grey)),
-                LogSyncPhase.syncing ||
-                LogSyncPhase.done =>
-                  Column(children: [
+                LogSyncPhase.idle => Text(
+                  'Idle',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                LogSyncPhase.syncing || LogSyncPhase.done => Column(
+                  children: [
                     for (final t in _logTypeOrder)
                       _logTypeRow(
+                        context: context,
                         label: t,
                         isCurrent:
                             t == currentType && phase == LogSyncPhase.syncing,
-                        isDone: synced.contains(t) ||
-                            phase == LogSyncPhase.done,
+                        isDone:
+                            synced.contains(t) || phase == LogSyncPhase.done,
                         cursor: t == currentType ? cursor : null,
                       ),
-                  ]),
-                LogSyncPhase.error => Text('Error: $error',
-                    style: const TextStyle(color: Colors.red)),
+                  ],
+                ),
+                LogSyncPhase.error => Text(
+                  'Error: $error',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               },
               const Divider(),
-              _healthStatus(),
+              _healthStatus(context),
             ],
           ),
         ),
@@ -68,7 +77,8 @@ class LogSyncCard extends StatelessWidget {
     });
   }
 
-  Widget _healthStatus() {
+  Widget _healthStatus(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Watch((_) {
       final available = controller.healthAvailable.value;
       final perms = controller.healthPermissionsGranted.value;
@@ -81,67 +91,91 @@ class LogSyncCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(children: [
-            const Icon(Icons.water_drop, size: 14),
-            const SizedBox(width: 4),
-            Text('Health Connect',
+          child: Row(
+            children: [
+              const Icon(Icons.water_drop, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                'Health Connect',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: error != null ? Colors.red : null,
-                )),
-            const Spacer(),
-            if (error != null)
-              Flexible(
-                child: Text('error',
+                  color: error != null ? cs.error : null,
+                ),
+              ),
+              const Spacer(),
+              if (error != null)
+                Flexible(
+                  child: Text(
+                    'error',
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, color: Colors.red)),
-              )
-            else if (available == null)
-              const Text('...', style: TextStyle(fontSize: 11, color: Colors.grey))
-            else if (!available)
-              const Text('unavailable',
-                  style: TextStyle(fontSize: 11, color: Colors.grey))
-            else if (perms == false)
-              const Text('denied — tap to open',
-                  style: TextStyle(fontSize: 11, color: Colors.orange))
-            else if (perms == true)
-              const Text('synced',
-                  style: TextStyle(fontSize: 11, color: Colors.green))
-            else
-              const Text('checking',
-                  style: TextStyle(fontSize: 11, color: Colors.grey)),
-          ]),
+                    style: TextStyle(fontSize: 11, color: cs.error),
+                  ),
+                )
+              else if (available == null)
+                Text(
+                  '...',
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                )
+              else if (!available)
+                Text(
+                  'unavailable',
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                )
+              else if (perms == false)
+                Text(
+                  'denied \u2014 tap to open',
+                  style: TextStyle(fontSize: 11, color: cs.tertiary),
+                )
+              else if (perms == true)
+                Text(
+                  'synced',
+                  style: TextStyle(fontSize: 11, color: cs.primary),
+                )
+              else
+                Text(
+                  'checking',
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                ),
+            ],
+          ),
         ),
       );
     });
   }
 
   Widget _logTypeRow({
+    required BuildContext context,
     required String label,
     required bool isCurrent,
     required bool isDone,
     int? cursor,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(children: [
-        if (isCurrent)
-          const SizedBox.square(
+      child: Row(
+        children: [
+          if (isCurrent)
+            const SizedBox.square(
               dimension: 14,
-              child: CircularProgressIndicator(strokeWidth: 1.5))
-        else if (isDone)
-          const Icon(Icons.check, size: 14, color: Colors.green)
-        else
-          const Icon(Icons.remove, size: 14, color: Colors.grey),
-        const SizedBox(width: 8),
-        Text(label),
-        if (cursor != null) ...[
-          const Spacer(),
-          Text(_fmtTs(cursor),
-              style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            )
+          else if (isDone)
+            Icon(Icons.check, size: 14, color: cs.primary)
+          else
+            Icon(Icons.remove, size: 14, color: cs.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Text(label),
+          if (cursor != null) ...[
+            const Spacer(),
+            Text(
+              _fmtTs(cursor),
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }

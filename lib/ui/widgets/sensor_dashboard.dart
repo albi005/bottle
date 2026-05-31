@@ -16,8 +16,10 @@ class SensorDashboard extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.only(bottom: 4),
-          child: Text('Sensors',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          child: Text(
+            'Sensors',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
         ),
         SensorRow<CapUiStateData>(
           label: 'UI State',

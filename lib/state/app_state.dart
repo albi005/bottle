@@ -7,7 +7,8 @@ final activeBottles = listSignal<BottleController>([]);
 
 final selectedBottleIndex = signal<int?>(null);
 
-final bluetoothAdapterState =
-    signal<BluetoothAdapterState>(BluetoothAdapterState.unknown);
+final bluetoothAdapterState = signal<BluetoothAdapterState>(
+  BluetoothAdapterState.unknown,
+);
 
 final isScanning = signal<bool>(false);

@@ -27,10 +27,14 @@ class BottleController {
   final uiState = signal<SensorValue<CapUiStateData>>(const SensorNotQueried());
   final tofDistance = signal<SensorValue<int>>(const SensorNotQueried());
   final sipCounter = signal<SensorValue<int>>(const SensorNotQueried());
-  final hallEffect = signal<SensorValue<HallEffectData>>(const SensorNotQueried());
+  final hallEffect = signal<SensorValue<HallEffectData>>(
+    const SensorNotQueried(),
+  );
   final bottlePresent = signal<SensorValue<bool>>(const SensorNotQueried());
   final ambientLight = signal<SensorValue<double>>(const SensorNotQueried());
-  final accelerometer = signal<SensorValue<AccelData>>(const SensorNotQueried());
+  final accelerometer = signal<SensorValue<AccelData>>(
+    const SensorNotQueried(),
+  );
   final batteryLevel = signal<SensorValue<int>>(const SensorNotQueried());
   final deviceInfo = signal<SensorValue<DeviceInfo>>(const SensorNotQueried());
 
@@ -101,8 +105,11 @@ class BottleController {
       connectionPhase.value = ConnectionPhase.ready;
 
       _refreshLoop = RefreshLoop(
-          _sensorService!, _logService!, _healthSyncService, this)
-        ..start();
+        _sensorService!,
+        _logService!,
+        _healthSyncService,
+        this,
+      )..start();
     } catch (e) {
       connectionPhase.value = ConnectionPhase.failed;
       connectionError.value = e.toString();

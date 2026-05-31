@@ -19,33 +19,54 @@ class SensorRow<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Watch((_) {
       final value = signal.value;
-      return Row(children: [
-        SizedBox(width: 130, child: Text(label)),
-        Expanded(
+      return Row(
+        children: [
+          SizedBox(width: 130, child: Text(label)),
+          Expanded(
             child: switch (value) {
-          SensorNotQueried() =>
-            const Text('\u2014', style: TextStyle(color: Colors.grey)),
-          SensorLoading() => const Row(children: [
-            SizedBox.square(
-                dimension: 16,
-                child: CircularProgressIndicator(strokeWidth: 2)),
-            SizedBox(width: 8),
-            Text('loading...', style: TextStyle(color: Colors.grey)),
-          ]),
-          SensorData(value: final v, refreshing: final refreshing) => Row(
-              children: [
-                Flexible(child: Text(formatter(v))),
-                if (refreshing) ...[
-                  const SizedBox(width: 8),
+              SensorNotQueried() => Text(
+                '\u2014',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              SensorLoading() => Row(
+                children: [
                   const SizedBox.square(
-                      dimension: 12,
-                      child: CircularProgressIndicator(strokeWidth: 1.5)),
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'loading...',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
-              ]),
-          SensorError(message: final msg) =>
-            Flexible(child: Text('Error: $msg', style: const TextStyle(color: Colors.red))),
-        }),
-      ]);
+              ),
+              SensorData(value: final v, refreshing: final refreshing) => Row(
+                children: [
+                  Flexible(child: Text(formatter(v))),
+                  if (refreshing) ...[
+                    const SizedBox(width: 8),
+                    const SizedBox.square(
+                      dimension: 12,
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                    ),
+                  ],
+                ],
+              ),
+              SensorError(message: final msg) => Flexible(
+                child: Text(
+                  'Error: $msg',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            },
+          ),
+        ],
+      );
     });
   }
 }

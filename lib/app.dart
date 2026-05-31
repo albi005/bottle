@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 
 import 'package:bottle/di/injection.dart';
 import 'package:bottle/state/app_state.dart';
@@ -37,15 +38,32 @@ class _BottleAppState extends State<BottleApp> {
     }
   }
 
+  static const _fallbackSeed = Colors.blue;
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'LARQ Bottles',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      home: const HomePage(),
+    return DynamicColorBuilder(
+      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+        return MaterialApp(
+          title: 'LARQ Bottles',
+          theme: ThemeData(
+            colorScheme:
+                lightDynamic ?? ColorScheme.fromSeed(seedColor: _fallbackSeed),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            colorScheme:
+                darkDynamic ??
+                ColorScheme.fromSeed(
+                  seedColor: _fallbackSeed,
+                  brightness: Brightness.dark,
+                ),
+            useMaterial3: true,
+          ),
+          themeMode: ThemeMode.system,
+          home: const HomePage(),
+        );
+      },
     );
   }
 }

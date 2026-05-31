@@ -63,16 +63,14 @@ class LogService {
     await _syncLogType(
       name: 'Charging ADC Log',
       table: 'charging_adc_logs',
-      fetcher: (ts) =>
-          _bottleService.getChargingAdcLogPage(fromTimestamp: ts),
+      fetcher: (ts) => _bottleService.getChargingAdcLogPage(fromTimestamp: ts),
       inserter: (es) => _repo.insertChargingAdcLogs(name, es),
       entryTs: (e) => e.timestamp.toInt(),
     );
 
-    _controller.logSyncPhase.value =
-        _controller.logSyncError.value != null
-            ? LogSyncPhase.error
-            : LogSyncPhase.done;
+    _controller.logSyncPhase.value = _controller.logSyncError.value != null
+        ? LogSyncPhase.error
+        : LogSyncPhase.done;
   }
 
   Future<void> _syncLogType<T>({
