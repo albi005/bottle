@@ -8,7 +8,7 @@ abstract class DatabaseModule {
   @preResolve
   @singleton
   Future<Database> provideDatabase() async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await getApplicationSupportDirectory();
     final path = join(dir.path, 'bottle.db');
     return openDatabase(
       path,
