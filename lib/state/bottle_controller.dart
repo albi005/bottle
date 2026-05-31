@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:signals/signals.dart';
@@ -89,7 +90,11 @@ class BottleController {
       final bottleService = BottleService(connection);
       _sensorService = SensorService(bottleService, this);
       _logService = LogService(bottleService, _logRepo, this);
-      _healthSyncService = HealthSyncService(_logRepo, this);
+      if (Platform.isLinux) {
+        healthAvailable.value = false;
+      } else {
+        _healthSyncService = HealthSyncService(_logRepo, this);
+      }
 
       await connection.subscribeToRx(bottleService.onResponse);
 
