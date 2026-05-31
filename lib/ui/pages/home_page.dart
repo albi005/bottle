@@ -33,22 +33,24 @@ class HomePage extends StatelessWidget {
         }
 
         if (isWide) {
-          return Row(children: [
-            SizedBox(
-              width: 250,
-              child: _BottleListWidget(
-                bottles: bottles,
-                selectedIndex: selectedIdx,
-                onSelect: (i) => selectedBottleIndex.value = i,
+          return Row(
+            children: [
+              SizedBox(
+                width: 300,
+                child: _BottleListWidget(
+                  bottles: bottles,
+                  selectedIndex: selectedIdx,
+                  onSelect: (i) => selectedBottleIndex.value = i,
+                ),
               ),
-            ),
-            const VerticalDivider(width: 1),
-            Expanded(
-              child: selectedIdx != null && selectedIdx < bottles.length
-                  ? BottleDetailWidget(controller: bottles[selectedIdx])
-                  : const Center(child: Text('Select a bottle')),
-            ),
-          ]);
+              const VerticalDivider(width: 1),
+              Expanded(
+                child: selectedIdx != null && selectedIdx < bottles.length
+                    ? BottleDetailWidget(controller: bottles[selectedIdx])
+                    : const Center(child: Text('Select a bottle')),
+              ),
+            ],
+          );
         } else {
           return _BottleListWidget(
             bottles: bottles,
