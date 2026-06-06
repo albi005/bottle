@@ -1,0 +1,649 @@
+// v1.13
+
+syntax = "proto3";
+import "google/protobuf/any.proto";
+
+option java_package = "hu.alb1.bottle.proto";
+
+// max CapBleRequest/CapBleResponse size is 182 bytes
+// timestamp - unix epoch in sec
+
+// --------------------------
+// ---- Request/Response ----
+// --------------------------
+
+message CapBleRequest {
+	fixed32 requestId = 1;
+  google.protobuf.Any body = 2;
+}
+
+enum CapEnumResponseCode {
+	RESPONSE_CODE_FAIL            = 0;
+	RESPONSE_CODE_SUCCESS         = 1;
+	RESPONSE_CODE_NOT_SUPPORTED   = 2;
+}
+
+message CapBleResponse {
+	fixed32 requestId = 1;
+	CapEnumResponseCode code = 2;
+	google.protobuf.Any body = 3;
+}
+
+// ------------------------
+// ---- CapEnumUiState ----
+// ------------------------
+
+enum CapEnumUiState {
+	UI_STATE_ON = 0;
+	UI_STATE_FAULT = 1;
+	UI_STATE_UV_MAINTENANCE = 2;
+	UI_STATE_UV_NORMAL = 3;
+	UI_STATE_UV_ADVENTURE = 4;
+	UI_STATE_PAIRED = 5;
+	UI_STATE_HYDRATION_REMINDER	= 6;
+	UI_STATE_BATTERY_LOW = 7;
+	UI_STATE_CHARGING = 8;
+	UI_STATE_CHARGED = 9;
+	UI_STATE_UV_INTERLOCK = 10;
+	UI_STATE_BOTTLE_CALIBRATION	= 11;
+	UI_STATE_TOF_MEASUREMENT = 12;
+	UI_STATE_TURN_OFF = 13;
+	UI_STATE_FACTORY_RESET = 14;
+	UI_STATE_ALL_OFF = 15;
+	UI_STATE_LOCKED = 16;
+	UI_STATE_QC = 17;
+	UI_STATE_LAST = 18;
+}
+
+enum CapPowerSavingMode {
+	POWER_SAVING_MODE_ON  = 0;
+	POWER_SAVING_MODE_OFF = 1;
+}
+
+// Request
+message RequestGetCapUiState { }
+// Response
+message ResponseGetCapUiState {
+	CapEnumUiState state = 1;
+	CapPowerSavingMode powerSavingMode = 2;
+}
+
+// ----------------------------------
+// -- RequestSetCapPowerSavingMode --
+// ----------------------------------
+
+message RequestSetCapPowerSavingMode {
+    CapPowerSavingMode mode = 1;
+}
+// Response - RESPONSE_CODE_SUCCESS
+
+
+// -----------------------
+// ---- CapUvActivate ----
+// -----------------------
+
+enum CapEnumUvActivationMode {
+	UV_ACTIVATION_MAINTENANCE  = 0;
+	UV_ACTIVATION_STANDARD     = 1;
+	UV_ACTIVATION_ADVENTURE    = 2;
+	UV_ACTIVATION_STOP         = 3;
+}
+
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapUvActivate {
+	CapEnumUvActivationMode mode = 1;
+}
+
+// -------------------------
+// ---- CapTimeSettings ----
+// -------------------------
+
+message CapTimeSettings {
+	uint64 timeInMillisec = 1;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapTimeSettings {
+	CapTimeSettings settings = 1;
+}
+
+// GET
+// Request
+message RequestGetCapTimeSettings { }
+// Response
+message ResponseGetCapTimeSettings {
+	CapTimeSettings settings = 1;
+}
+
+// ---------------------
+// ---- CapUvConfig ----
+// ---------------------
+
+message CapUvParameters {
+	uint32 cycle = 1;
+	uint32 currentInMilliamps = 2;
+}
+
+message CapUvConfig {
+	CapUvParameters maintenance = 1;
+	CapUvParameters standard = 2;
+	CapUvParameters adventure = 3;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapUvConfig {
+	CapUvConfig config = 1;
+}
+
+// GET
+// Request
+message RequestGetCapUvConfig { }
+// Response
+message ResponseGetCapUvConfig {
+	CapUvConfig config = 1;
+}
+
+// -----------------------------
+// -- CapDoNotDisturbSettings --
+// -----------------------------
+
+enum CapEnumDoNotDisturbState {
+	DO_NOT_DISTURB_STATE_OFF	= 0;
+	DO_NOT_DISTURB_STATE_ON		= 1;
+	DO_NOT_DISTURB_STATE_AUTO	= 2;
+}
+
+message CapDoNotDisturbSettings {
+	CapEnumDoNotDisturbState state = 1;
+	fixed32 startTimeInSec = 2; // ranges from 1 to 86400
+	fixed32 stopTimeInSec = 3; // same as above
+	fixed32 snoozeTimeInMinutes = 4;
+}
+
+// GET
+// Request
+message RequestGetCapDoNotDisturbSettings { }
+// Response
+message ResponseGetCapDoNotDisturbSettings {
+	CapDoNotDisturbSettings settings = 1;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapDoNotDisturbSettings {
+	CapDoNotDisturbSettings settings = 1;
+}
+
+// -------------------------------
+// -- CapStateThresholdSettings --
+// -------------------------------
+
+message CapStateThresholdSettings {
+	fixed32 capacitiveBottleSensorDelta = 1;
+	fixed32 capacitiveSipSensorDelta = 2;
+	fixed32 ambientLightUvStartInLux = 3; // ALS is below this value before starting UV cycle
+	fixed32 ambientLightUvOnInLux = 4; // ALS is below this value while UV cycle is on
+	fixed32 ambientLightTofInLux = 5; // ALS is below this value at time of TOF trigger event
+	float accelLevelOffset = 6; // Need feedback from Qiaoqiang on type and name
+}
+
+// GET
+// Request
+message RequestGetCapStateThresholdSettings { }
+// Response
+message ResponseGetCapStateThresholdSettings {
+	CapStateThresholdSettings settings = 1;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapStateThresholdSettings {
+	CapStateThresholdSettings settings = 1;
+}
+
+// ------------------------------
+// -- CapAdcProtectionSettings --
+// ------------------------------
+
+message CapAdcProtectionParameters {
+	float overtempInOhm = 1;
+	float openInVolt = 2;
+	float shortInVolt = 3;
+}
+
+message CapAdcProtectionSettings {
+	CapAdcProtectionParameters battery = 1;
+	CapAdcProtectionParameters uvLed = 2;
+}
+
+// GET
+// Request
+message RequestGetCapAdcProtectionSettings { }
+// Response
+message ResponseGetCapAdcProtectionSettings {
+	CapAdcProtectionSettings settings = 1;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapAdcProtectionSettings {
+	CapAdcProtectionSettings settings = 1;
+}
+
+// ---------------------------
+// -- CapLowBatterySettings --
+// ---------------------------
+
+message CapLowBatterySettings {
+	fixed32 alertThresholdInPercentage = 1;
+	fixed32 lockoutThresholdInPercentage = 2;
+}
+
+// GET
+// Request
+message RequestGetCapLowBatterySettings { }
+// Response
+message ResponseGetCapLowBatterySettings {
+	CapLowBatterySettings settings = 1;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapLowBatterySettings {
+	CapLowBatterySettings settings = 1;
+}
+
+// ------------------------------
+// -- CapHydroReminderSettings --
+// ------------------------------
+
+enum CapEnumHydroReminderState {
+	REMINDER_STATE_OFF					= 0;
+	REMINDER_STATE_INTERVAL_FIXED		= 1;
+	REMINDER_STATE_INTERVAL_ADAPTIVE	= 2;
+}
+
+message CapColor {
+  float red = 1; // ranges from 0 to 1
+  float green = 2; // same as above
+  float blue = 3; // same as above
+  float alpha = 4; // same as above
+}
+
+message CapHydroReminderSettings {
+	CapEnumHydroReminderState state = 1;
+	fixed32 startTimeInSec = 2; // ranges from 1 to 86400
+	fixed32 stopTimeInSec = 3; // same as above
+	fixed32 intervalInSec = 4;
+	CapColor color = 5;
+}
+
+// GET
+// Request
+message RequestGetCapHydroReminderSettings { }
+// Response
+message ResponseGetCapHydroReminderSettings {
+	CapHydroReminderSettings settings = 1;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapHydroReminderSettings {
+	CapHydroReminderSettings settings = 1;
+}
+
+// ------------------------------
+// -- CapHallEffectSensorState --
+// ------------------------------
+
+message CapHallEffectSensorState {
+	uint64 timestamp = 1;
+	bool value = 2;
+}
+
+// Request
+message RequestGetCapHallEffectSensorState { }
+// Response
+message ResponseGetCapHallEffectSensorState {
+	CapHallEffectSensorState state = 1;
+}
+
+// -------------------------
+// --- CapSipSensorState ---
+// -------------------------
+
+message CapSipSensorState {
+	sint32 value = 1;
+	bool state = 2;
+}
+
+// Request
+message RequestGetCapSipSensorState { }
+// Response
+message ResponseGetCapSipSensorState {
+	CapSipSensorState state = 1;
+}
+
+// ----------------------------
+// --- CapBottleSensorState ---
+// ----------------------------
+
+message CapBottleSensorState {
+	sint32 value = 1;
+	bool state = 2;
+}
+
+message CapBottleSetSensorState {
+	bool state = 1;
+}
+
+// GET
+// Request
+message RequestGetCapBottleSensorState { }
+// Response
+message ResponseGetCapBottleSensorState {
+	CapBottleSensorState state = 1;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapBottleSensorState {
+	CapBottleSetSensorState state = 1;
+}
+
+// --------------------------------
+// -- CapAmbientLightSensorState --
+// --------------------------------
+
+message CapAmbientLightSensorState {
+	float value = 1;
+}
+
+// Request
+message RequestGetCapAmbientLightSensorState { }
+// Response
+message ResponseGetCapAmbientLightSensorState {
+	CapAmbientLightSensorState state = 1;
+}
+
+// ---------------------------
+// -- CapAccelerometerState --
+// ---------------------------
+
+message CapAccelerometerState {
+	float x = 1;
+	float y = 2;
+	float z = 3;
+}
+
+// Request
+message RequestGetCapAccelerometerState { }
+// Response
+message ResponseGetCapAccelerometerState {
+	CapAccelerometerState state = 1;
+}
+
+// ---------------------
+// ---- CapTofState ----
+// ---------------------
+
+message CapTofState {
+	fixed32 distanceInMillimeter = 1;
+	fixed32 kcps = 2;
+}
+
+// Request
+message RequestGetCapTofState { }
+// Response
+message ResponseGetCapTofState {
+	CapTofState state = 1;
+}
+
+// ----------------------
+// --- CapTofSettings ---
+// ----------------------
+
+enum CapEnumTofDisplayMode {
+	DISPLAY_MODE_OFF	= 0;
+	DISPLAY_MODE_ON		= 1;
+	DISPLAY_MODE_EVENT	= 2;
+}
+
+message CapTofSettings {
+	CapEnumTofDisplayMode mode = 1;
+	bool isIntervalTriggerEnabled = 2;
+	fixed32 triggerIntervalInSec = 3;
+	fixed32 accelerometerCheckIntervalInSec = 4;
+	fixed32 bottleSizeInMilliliter = 5;
+	fixed32 accelerometerTimeoutInSec = 6;
+}
+
+// GET
+// Request
+message RequestGetCapTofSettings { }
+// Response
+message ResponseGetCapTofSettings {
+	CapTofSettings settings = 1;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapTofSettings {
+	CapTofSettings settings = 1;
+}
+
+// ----------------------------
+// -- CapCalibrationSettings --
+// ----------------------------
+
+message CapCalibrationSettings {
+	fixed32 timeoutIntervalInSec = 1;
+}
+
+// GET
+// Request
+message RequestGetCapCalibrationSettings { }
+// Response
+message ResponseGetCapCalibrationSettings {
+	CapCalibrationSettings settings = 1;
+}
+
+// SET
+// Response - RESPONSE_CODE_SUCCESS
+// Request
+message RequestSetCapCalibrationSettings {
+	CapCalibrationSettings settings = 1;
+}
+
+// ------------------------
+// ---- CapCalibration ----
+// ------------------------
+
+message RequestCapStartCapCalibration { }
+message RequestCapStopCapCalibration { }
+// Response - RESPONSE_CODE_SUCCESS
+
+// ----------------------------
+// -- CapEnterLowBatteryMode --
+// ----------------------------
+
+message RequestCapEnterLowBatteryMode { }
+// Response - RESPONSE_CODE_SUCCESS
+
+// -----------------------
+// --- CapEnterDfuMode ---
+// -----------------------
+
+message RequestCapEnterDfuMode { }
+// Response - RESPONSE_CODE_SUCCESS
+
+// -----------------------
+// --- CapFactoryReset ---
+// -----------------------
+
+message RequestCapFactoryReset { }
+// Response - RESPONSE_CODE_SUCCESS
+
+// -------------------
+// --- CapLogQuery ---
+// -------------------
+
+enum CapEnumLogQuerySearchAlgo {
+	SEARCH_ALGO_TIMESTAMP = 0;
+	SEARCH_ALGO_INCREMENT = 1;
+}
+
+// query returns first [limit] logs ordered ascending by timestamp for given [fromTimestamp] non-inclusive param
+message CapLogQuery {
+	uint64 fromTimestamp = 1;
+	fixed32 limit = 2;
+	CapEnumLogQuerySearchAlgo algo = 3;
+}
+
+// -------------------
+// ---- CapTofLog ----
+// -------------------
+
+enum CapEnumTofTriggerType {
+	TYPE_REQUEST = 0; // result of RequestGetCapTofState
+	TYPE_INTERVAL = 1;
+	TYPE_CAP = 2;
+	TYPE_CAP_ON_FLAP = 3;
+	TYPE_CAP_ON_FLAP_OPEN_SIP = 4;
+}
+
+message CapTofLog {
+	uint64 timestamp = 1;
+	CapEnumTofTriggerType triggerType = 2;
+	fixed32 distanceInMillimeter = 3;
+	fixed32 kcps = 4;
+	float uvLedTempInOhm = 5;
+}
+
+// Request
+message RequestGetCapTofLog {
+	CapLogQuery query = 1;
+}
+// Response
+message ResponseGetCapTofLog {
+	repeated CapTofLog items = 1;
+}
+
+// -------------------
+// ---- CapAdcLog ----
+// -------------------
+
+message CapAdcLog {
+	uint64 timestamp = 1;
+	float batteryInVolt = 2;
+	float batteryTempInOhm = 3;
+	float uvLedInVolt = 4;
+	float uvLedCurrentInMilliamps = 5;
+	float uvLedTempInOhm = 6;
+	float cPcbTempInOhm = 7;
+}
+
+// ---- Activation ----
+
+// Request
+message RequestGetActivationCapAdcLog {
+	CapLogQuery query = 1;
+}
+// Response
+message ResponseGetActivationCapAdcLog {
+	repeated CapAdcLog items = 1;
+}
+
+// ---- Charging ----
+
+// Request
+message RequestGetChargingCapAdcLog {
+	CapLogQuery query = 1;
+}
+// Response
+message ResponseGetChargingCapAdcLog {
+	repeated CapAdcLog items = 1;
+}
+
+// ----------------------
+// -- CapActivationLog --
+// ----------------------
+
+message CapActivationLog {
+	uint64 timestamp = 1;
+	CapEnumUvActivationMode mode = 2;
+	fixed32 batterySocInPercentage = 3; // SoC - state of charge
+}
+
+// Request
+message RequestGetCapActivationLog {
+	CapLogQuery query = 1;
+}
+// Response
+message ResponseGetCapActivationLog {
+	repeated CapActivationLog items = 1;
+}
+
+// ---------------------
+// ---- CapFaultLog ----
+// ---------------------
+
+enum CapEnumFaultType {
+	TYPE_UV_OVERTEMP	= 0;
+	TYPE_UV_LED_SHORT	= 1;
+	TYPE_UV_LED_OPEN 	= 2;
+	TYPE_BATTERY_TEMP	= 3;
+	TYPE_BATTERY_OPEN 	= 4;
+	TYPE_BATTERY_SHORT	= 5;
+	TYPE_AMBIENT_LIGHT	= 6;
+}
+
+message CapFaultLog {
+	uint64 timestamp = 1;
+	CapEnumFaultType type = 2;
+}
+
+// Request
+message RequestGetCapFaultLog {
+	CapLogQuery query = 1;
+}
+// Response
+message ResponseGetCapFaultLog {
+	repeated CapFaultLog items = 1;
+}
+
+// ---------------------
+// ---- CapStateLog ----
+// ---------------------
+
+message CapStateLog {
+	uint64 timestamp = 1;
+	bool hall = 2;
+	bool bottleDetection = 3;
+	bool ambientLight = 4;
+	bool sipDetection = 5;
+	float bottleDetectionCapacitorValue = 6;
+	float ambientLightSensorValue = 7;
+	float sipDetectionCapacitorSensorValue = 8;
+}
+
+// Request
+message RequestGetCapStateLog {
+	CapLogQuery query = 1;
+}
+// Response
+message ResponseGetCapStateLog {
+	repeated CapStateLog items = 1;
+}

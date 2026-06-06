@@ -1,5 +1,19 @@
 package hu.alb1.bottle
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.ComponentCaller
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.companion.AssociationInfo
+import android.companion.AssociationRequest
+import android.companion.BluetoothLeDeviceFilter
+import android.companion.CompanionDeviceManager
+import android.content.Intent
+import android.content.IntentSender
+import android.content.pm.PackageManager
+import android.net.MacAddress
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,9 +33,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.core.app.ActivityCompat
+import androidx.core.content.getSystemService
+import hu.alb1.bottle.ui.page.DeviceListPage
 import hu.alb1.bottle.ui.theme.BottleTheme
+import java.util.concurrent.Executor
+import java.util.regex.Pattern
+
+private const val SELECT_DEVICE_REQUEST_CODE = 0
 
 class MainActivity : ComponentActivity() {
+    private val deviceManager by lazy {
+        getSystemService(COMPANION_DEVICE_SERVICE) as CompanionDeviceManager
+    }
+    val mBluetoothAdapter: BluetoothAdapter by lazy {
+        getSystemService<BluetoothManager>()!!.adapter
+    }
+    val executor: Executor = Executor { it.run() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -29,6 +58,79 @@ class MainActivity : ComponentActivity() {
             BottleTheme {
                 BottleApp()
             }
+        }
+
+        val namePattern = Pattern.compile("^LARQ_")
+        val deviceFilter = BluetoothLeDeviceFilter.Builder()
+            .setNamePattern(namePattern)
+            .build()
+        val pairingRequest = AssociationRequest.Builder()
+            .addDeviceFilter(deviceFilter)
+            .build()
+        val executor = Executor { it.run() }
+        // When the app tries to pair with a Bluetooth device, show the
+        // corresponding dialog box to the user.
+        deviceManager.associate(
+            pairingRequest,
+            executor,
+            object : CompanionDeviceManager.Callback() {
+                // Called when a device is found. Launch the IntentSender so the user
+                // can select the device they want to pair with.
+                override fun onAssociationPending(intentSender: IntentSender) {
+                    intentSender?.let {
+                        startIntentSenderForResult(it, SELECT_DEVICE_REQUEST_CODE, null, 0, 0, 0)
+                    }
+                }
+
+                override fun onAssociationCreated(associationInfo: AssociationInfo) {
+                    // AssociationInfo object is created and get association id and the
+                    // macAddress.
+                    var associationId: Int = associationInfo.id
+                    var macAddress: MacAddress = associationInfo.deviceMacAddress!!
+                }
+
+                override fun onFailure(errorMessage: CharSequence?) {
+                    // Handle the failure.
+                }
+            }
+        )
+    }
+
+    @SuppressLint("MissingPermission")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?,
+        caller: ComponentCaller
+    ) {
+        when (requestCode) {
+            SELECT_DEVICE_REQUEST_CODE -> when (resultCode) {
+                RESULT_OK -> {
+                    // The user chose to pair the app with a Bluetooth device.
+                    val deviceToPair: BluetoothDevice? =
+                        data?.getParcelableExtra(CompanionDeviceManager.EXTRA_DEVICE)
+                    deviceToPair?.let { device ->
+                        if (ActivityCompat.checkSelfPermission(
+                                this,
+                                Manifest.permission.BLUETOOTH_CONNECT
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            // TODO: Consider calling
+                            //    ActivityCompat#requestPermissions
+                            // here to request the missing permissions, and then overriding
+                            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                            //                                          int[] grantResults)
+                            // to handle the case where the user grants the permission. See the documentation
+                            // for ActivityCompat#requestPermissions for more details.
+                            return
+                        }
+                        device.createBond()
+                        // Maintain continuous interaction with a paired device.
+                    }
+                }
+            }
+
+            else -> super.onActivityResult(requestCode, resultCode, data)
         }
     }
 }
@@ -56,8 +158,7 @@ fun BottleApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
+            DeviceListPage(
                 modifier = Modifier.padding(innerPadding)
             )
         }
