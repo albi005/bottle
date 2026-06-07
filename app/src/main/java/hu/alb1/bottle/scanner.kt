@@ -7,19 +7,18 @@ import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.os.Build
 import android.os.ParcelUuid
 import androidx.annotation.RequiresPermission
 import androidx.core.content.getSystemService
+import kotlinx.coroutines.launch
 
-class BleScanner
-@RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
-constructor(val context: Context) {
-
+class BleScanner(val context: Context) {
+    private var scanCount = 0
     private val bluetoothManager: BluetoothManager = context.getSystemService<BluetoothManager>()!!
     private val bluetoothAdapter = bluetoothManager.adapter
     private val bleScanner = bluetoothAdapter.bluetoothLeScanner
 
-    // Define what we are looking for based on your device's payload
     private val scanFilter = ScanFilter.Builder()
         // Manufacturer Data (Company 0x0059, Data 0x434150)
         // 0x43, 0x41, 0x50 equates to ASCII "C", "A", "P"
@@ -31,21 +30,30 @@ constructor(val context: Context) {
         .setServiceUuid(ParcelUuid.fromString("0000180a-0000-1000-8000-00805f9b34fb"))
         .build()
 
-    // Use low latency for foreground scanning to find it quickly
-    private val scanSettings = ScanSettings.Builder()
-        .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-        .build()
+    private val scanSettings =
+        ScanSettings.Builder()
+            .setScanMode(
+                if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+                    ScanSettings.SCAN_TYPE_PASSIVE
+                } else {
+                    throw Exception()
+                }
+            )
+            .build()
 
-    // The callback that gets triggered when the device is found
     private val scanCallback = object : ScanCallback() {
         @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             super.onScanResult(callbackType, result)
 
-            val vm = (context.applicationContext as BottleApplication).appViewModel
+            val app = (context.applicationContext as BottleApplication)
+            val vm = app.appViewModel
             vm.update(result)
 
-            // device.connectGatt(context, false, yourGattCallback)
+            // Trigger background sync if found
+            app.applicationScope.launch {
+                app.syncManager.sync(result.device.address)
+            }
 
             // Stop scanning once found to save battery
 //            stopScanning()
@@ -57,6 +65,7 @@ constructor(val context: Context) {
         }
     }
 
+    @Synchronized
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun startScanning() {
         if (bleScanner == null) {
@@ -64,13 +73,21 @@ constructor(val context: Context) {
             return
         }
 
-        val filters = listOf(scanFilter)
-
-        bleScanner.startScan(filters, scanSettings, scanCallback)
+        if (scanCount == 0) {
+            val filters = listOf(scanFilter)
+            bleScanner.startScan(filters, scanSettings, scanCallback)
+        }
+        scanCount++
     }
 
+    @Synchronized
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun stopScanning() {
-        bleScanner?.stopScan(scanCallback)
+        if (scanCount > 0) {
+            scanCount--
+            if (scanCount == 0) {
+                bleScanner?.stopScan(scanCallback)
+            }
+        }
     }
 }

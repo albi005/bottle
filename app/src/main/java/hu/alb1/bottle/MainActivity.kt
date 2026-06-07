@@ -99,15 +99,6 @@ class MainActivity : ComponentActivity() {
 class SyncWork(val appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
-//        val bluetoothManager = appContext.getSystemService<BluetoothManager>()!!
-//        val adapter = bluetoothManager.adapter
-//        adapter.bluetoothLeScanner.startScan(
-//            listOf(
-////                BluetoothLeDeviceFilter.Builder().setNamePattern(Pattern.compile("^LARQ_")).build()
-//                ScanFilter.Builder().
-//            ),
-//            ScanSettings.Builder().setPhy(BluetoothDevice.PHY_LE_1M)
-//        )
         if (ActivityCompat.checkSelfPermission(
                 appContext,
                 Manifest.permission.BLUETOOTH_SCAN
@@ -120,10 +111,13 @@ class SyncWork(val appContext: Context, workerParams: WorkerParameters) :
         )
             return Result.failure()
 
-        val bleScanner = BleScanner(appContext)
+        val bleScanner = (appContext as BottleApplication).bleScanner
         bleScanner.startScanning()
-        delay(30.seconds)
-        bleScanner.stopScanning()
+        try {
+            delay(30.seconds)
+        } finally {
+            bleScanner.stopScanning()
+        }
 
         return Result.success()
     }

@@ -11,11 +11,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +27,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import hu.alb1.bottle.BottleApplication
+import hu.alb1.bottle.DeviceViewModel
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -32,14 +37,18 @@ fun DeviceListPage(modifier: Modifier = Modifier) {
     val app = LocalContext.current.applicationContext as BottleApplication
     val devices = app.appViewModel.devices.values
 
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        app.bleScanner.startScanning()
+        onDispose {
+            app.bleScanner.stopScanning()
+        }
+    }
+
     Box(modifier = modifier.padding(16.dp, 0.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for (device in devices) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DevicePingMarker(device.latestPing.value, Modifier.size(24.dp))
-                    Text(device.name)
-                    Text(device.address)
-                    Text(device.rssi.toString())
+                key(device) {
+                    DeviceCard(device)
                 }
             }
         }
@@ -47,10 +56,29 @@ fun DeviceListPage(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun DeviceCard(device: DeviceViewModel, modifier: Modifier = Modifier) {
+    Card(
+        onClick = {},
+        modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                DevicePingMarker(device.latestPing.value, Modifier.size(24.dp))
+                Text(device.name)
+            }
+            Text("MAC: " + device.address)
+            Text("RSSI: " + device.rssi.toString())
+        }
+    }
+}
+
+@Composable
 fun DevicePingMarker(
-    latestPing: Instant?, // Replace with your actual date/time type
+    latestPing: Instant?,
     modifier: Modifier = Modifier,
-    pingColor: Color = Color(0xFF007AFF) // Classic bright blue
+    pingColor: Color = MaterialTheme.colorScheme.tertiary
 ) {
     // 1f means finished/idle, 0f means just started
     val pingProgress = remember { Animatable(1f) }
@@ -77,7 +105,7 @@ fun DevicePingMarker(
         )
 
         if (progress < 1f) {
-            val minRadius = 6.dp.toPx()
+            val minRadius = 4.dp.toPx()
             val maxRadius = size.width / 2f
 
             val currentRadius = minRadius + ((maxRadius - minRadius) * progress)
