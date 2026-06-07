@@ -1,7 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.protobuf") version "0.10.0"
+    alias(libs.plugins.google.protobuf)
+    alias(libs.plugins.google.devtools.ksp)
+    alias(libs.plugins.google.dagger.hilt.android)
 }
 
 android {
@@ -32,8 +34,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures {
         compose = true
@@ -63,6 +65,10 @@ dependencies {
     // https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.work.runtime.ktx)
+
+    // https://developer.android.com/training/dependency-injection/hilt-android
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
 }
 
 protobuf {
