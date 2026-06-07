@@ -33,8 +33,9 @@ import dagger.hilt.android.AndroidEntryPoint
 import hu.alb1.bottle.ui.page.DeviceListPage
 import hu.alb1.bottle.ui.theme.BottleTheme
 import kotlinx.coroutines.delay
-import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 const val SYNC_WORK_NAME = "bottleSync";
 
@@ -45,11 +46,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BottleTheme {
-                BottleApp()
+                BottleApp(this.application)
             }
         }
 
-        requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_SCAN), 0)
+        requestPermissions(
+            arrayOf(
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ), 67
+        )
 
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -70,7 +76,7 @@ class MainActivity : ComponentActivity() {
             .enqueueUniquePeriodicWork(
                 SYNC_WORK_NAME,
                 ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
-                PeriodicWorkRequestBuilder<SyncWork>(6, TimeUnit.HOURS)
+                PeriodicWorkRequestBuilder<SyncWork>(6.hours.toJavaDuration())
                     .setConstraints(
                         Constraints.Builder()
                             .setRequiresBatteryNotLow(true)
@@ -78,6 +84,15 @@ class MainActivity : ComponentActivity() {
                     )
                     .build()
             )
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String?>,
+        grantResults: IntArray,
+        deviceId: Int
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults, deviceId)
     }
 }
 
@@ -97,6 +112,11 @@ class SyncWork(val appContext: Context, workerParams: WorkerParameters) :
                 appContext,
                 Manifest.permission.BLUETOOTH_SCAN
             ) != PackageManager.PERMISSION_GRANTED
+            ||
+            ActivityCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) != PackageManager.PERMISSION_GRANTED
         )
             return Result.failure()
 
@@ -111,7 +131,7 @@ class SyncWork(val appContext: Context, workerParams: WorkerParameters) :
 
 @PreviewScreenSizes
 @Composable
-fun BottleApp() {
+fun BottleApp(context: Context) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
 
     NavigationSuiteScaffold(
