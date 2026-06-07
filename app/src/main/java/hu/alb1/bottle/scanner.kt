@@ -8,13 +8,15 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.ParcelUuid
 import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 
-class BleScanner(context: Context) {
+class BleScanner
+@RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
+constructor(context: Context) {
 
-    private val bluetoothManager: BluetoothManager = context.getSystemService(BluetoothManager::class.java)
+    private val bluetoothManager: BluetoothManager =
+        context.getSystemService(BluetoothManager::class.java)
     private val bluetoothAdapter = bluetoothManager.adapter
     private val bleScanner = bluetoothAdapter.bluetoothLeScanner
 
@@ -22,19 +24,19 @@ class BleScanner(context: Context) {
     private val scanFilter = ScanFilter.Builder()
         // Manufacturer Data (Company 0x0059, Data 0x434150)
         // 0x43, 0x41, 0x50 equates to ASCII "C", "A", "P"
-        .setManufacturerData(
-            0x0059,
-            byteArrayOf(0x43, 0x41, 0x50)
-        )
+//        .setManufacturerData(
+//            0x0059,
+//            byteArrayOf(0x43, 0x41, 0x50)
+//        )
 
         // Service UUID (180A needs to be expanded to the 128-bit base UUID)
-        .setServiceUuid(ParcelUuid.fromString("0000180a-0000-1000-8000-00805f9b34fb"))
+//        .setServiceUuid(ParcelUuid.fromString("0000180a-0000-1000-8000-00805f9b34fb"))
 
         .build()
 
     // Use low latency for foreground scanning to find it quickly
     private val scanSettings = ScanSettings.Builder()
-//        .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
+        .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
         .build()
 
     // The callback that gets triggered when the device is found
@@ -53,7 +55,7 @@ class BleScanner(context: Context) {
 
             // Stop scanning once found to save battery
             if (ActivityCompat.checkSelfPermission(
-                    this,
+                    context,
                     Manifest.permission.BLUETOOTH_SCAN
                 ) != PackageManager.PERMISSION_GRANTED
             ) {

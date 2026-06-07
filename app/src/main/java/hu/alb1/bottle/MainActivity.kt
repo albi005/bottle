@@ -1,6 +1,8 @@
 package hu.alb1.bottle
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.core.app.ActivityCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -29,7 +32,9 @@ import androidx.work.WorkerParameters
 import dagger.hilt.android.AndroidEntryPoint
 import hu.alb1.bottle.ui.page.DeviceListPage
 import hu.alb1.bottle.ui.theme.BottleTheme
+import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.seconds
 
 const val SYNC_WORK_NAME = "bottleSync";
 
@@ -44,11 +49,27 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_SCAN), 0)
+
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return
+        }
 
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 SYNC_WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
+                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
                 PeriodicWorkRequestBuilder<SyncWork>(6, TimeUnit.HOURS)
                     .setConstraints(
                         Constraints.Builder()
@@ -72,6 +93,18 @@ class SyncWork(val appContext: Context, workerParams: WorkerParameters) :
 //            ),
 //            ScanSettings.Builder().setPhy(BluetoothDevice.PHY_LE_1M)
 //        )
+        if (ActivityCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) != PackageManager.PERMISSION_GRANTED
+        )
+            return Result.failure()
+
+        val bleScanner = BleScanner(appContext)
+        bleScanner.startScanning()
+        delay(30.seconds)
+        bleScanner.stopScanning()
+
         return Result.success()
     }
 }
