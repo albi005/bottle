@@ -12,14 +12,12 @@ import kotlin.time.ExperimentalTime
 @HiltAndroidApp
 class BottleApplication : Application() {
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val appViewModel = AppViewModel()
+    val appViewModel = AppViewModel(applicationScope, this)
     
-    lateinit var syncManager: SyncManager
     lateinit var bleScanner: BleScanner
 
     override fun onCreate() {
         super.onCreate()
-        syncManager = SyncManager(this, applicationScope)
         bleScanner = BleScanner(this)
     }
 }

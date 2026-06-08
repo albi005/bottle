@@ -11,7 +11,6 @@ import android.os.Build
 import android.os.ParcelUuid
 import androidx.annotation.RequiresPermission
 import androidx.core.content.getSystemService
-import kotlinx.coroutines.launch
 
 class BleScanner(val context: Context) {
     private var scanCount = 0
@@ -50,11 +49,6 @@ class BleScanner(val context: Context) {
             val vm = app.appViewModel
             vm.update(result)
 
-            // Trigger background sync if found
-            app.applicationScope.launch {
-                app.syncManager.sync(result.device.address)
-            }
-
             // Stop scanning once found to save battery
 //            stopScanning()
         }
@@ -62,6 +56,10 @@ class BleScanner(val context: Context) {
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             println("Scan failed with error: $errorCode")
+        }
+
+        override fun onBatchScanResults(results: List<ScanResult?>?) {
+            super.onBatchScanResults(results)
         }
     }
 

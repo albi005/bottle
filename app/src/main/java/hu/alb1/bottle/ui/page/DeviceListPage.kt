@@ -14,10 +14,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -26,8 +30,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import hu.alb1.bottle.BluetoothProfileState
 import hu.alb1.bottle.BottleApplication
 import hu.alb1.bottle.DeviceViewModel
+import hu.alb1.bottle.ui.icon.bluetooth_connected
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -37,7 +43,7 @@ fun DeviceListPage(modifier: Modifier = Modifier) {
     val app = LocalContext.current.applicationContext as BottleApplication
     val devices = app.appViewModel.devices.values
 
-    androidx.compose.runtime.DisposableEffect(Unit) {
+    DisposableEffect(Unit) {
         app.bleScanner.startScanning()
         onDispose {
             app.bleScanner.stopScanning()
@@ -67,9 +73,28 @@ fun DeviceCard(device: DeviceViewModel, modifier: Modifier = Modifier) {
             ) {
                 DevicePingMarker(device.latestPing.value, Modifier.size(24.dp))
                 Text(device.name)
+                Box(Modifier.size(24.dp)) {
+                    when (device.bluetoothConnectionState.value) {
+                        BluetoothProfileState.CONNECTING, BluetoothProfileState.DISCONNECTING ->
+                            CircularProgressIndicator(
+                                Modifier.padding(4.dp),
+                                strokeWidth = 2.dp
+                            )
+
+                        BluetoothProfileState.DISCONNECTED -> {}
+                        BluetoothProfileState.CONNECTED ->
+                            Icon(bluetooth_connected, null)
+
+                        BluetoothProfileState.UNKNOWN -> Text("?")
+                    }
+                }
             }
             Text("MAC: " + device.address)
             Text("RSSI: " + device.rssi.toString())
+            Text("Battery: ${device.batteryLevel.intValue}%")
+            if (device.batteryLevelLoading.value) {
+                CircularProgressIndicator(modifier = Modifier.width(64.dp))
+            }
         }
     }
 }
