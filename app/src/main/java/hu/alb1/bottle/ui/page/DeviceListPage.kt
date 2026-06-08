@@ -34,6 +34,7 @@ import hu.alb1.bottle.BluetoothProfileState
 import hu.alb1.bottle.BottleApplication
 import hu.alb1.bottle.DeviceViewModel
 import hu.alb1.bottle.ui.icon.bluetooth_connected
+import kotlinx.coroutines.runBlocking
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -95,6 +96,8 @@ fun DeviceCard(device: DeviceViewModel, modifier: Modifier = Modifier) {
             if (device.batteryLevelLoading.value) {
                 CircularProgressIndicator(modifier = Modifier.width(64.dp))
             }
+
+            runBlocking { this }
         }
     }
 }

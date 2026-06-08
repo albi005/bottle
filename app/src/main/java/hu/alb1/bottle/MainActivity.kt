@@ -32,7 +32,10 @@ import androidx.work.WorkerParameters
 import dagger.hilt.android.AndroidEntryPoint
 import hu.alb1.bottle.ui.page.DeviceListPage
 import hu.alb1.bottle.ui.theme.BottleTheme
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
@@ -99,6 +102,10 @@ class MainActivity : ComponentActivity() {
 class SyncWork(val appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
+        coroutineScope {
+            async {  }
+            launch {  }
+        }
         return Result.success()
 
         if (ActivityCompat.checkSelfPermission(
