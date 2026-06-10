@@ -150,6 +150,7 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             val batteryService = gatt.services.first {it.uuid == BleIdentifiers.BATTERY_SERVICE}
             val batteryLevelCharacteristic = batteryService.characteristics.first {it.uuid == BleIdentifiers.BATTERY_LEVEL_CHAR}
             gatt.setCharacteristicNotification(batteryLevelCharacteristic, true)
+            gatt.setCharacteristicNotification()
             gatt.readCharacteristic(batteryLevelCharacteristic)
             batteryLevelLoading.value = true
         }

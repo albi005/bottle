@@ -1,15 +1,10 @@
 package hu.alb1.bottle
 
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattService
 import java.util.UUID
 
 object BleIdentifiers {
-    /**
-     * Helper to create a full 128-bit UUID from a 16-bit standard Bluetooth alias.
-     * Bluetooth Base UUID: 0000xxxx-0000-1000-8000-00805F9B34FB
-     */
-    private fun standardUuid(shortId: String): UUID {
-        return UUID.fromString("0000$shortId-0000-1000-8000-00805f9b34fb")
-    }
 
     // Generic Access Service
     val GENERIC_ACCESS_SERVICE = standardUuid("1800")
@@ -45,4 +40,45 @@ object BleIdentifiers {
 
     // Common Descriptors
     val CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR = standardUuid("2902")
+}
+
+class BatteryService {
+    val batteryLevelCharacteristic = CharacteristicWrapper(BleIdentifiers.BATTERY_LEVEL_CHAR)
+
+    constructor() {
+        ServiceWrapper(
+            BleIdentifiers.BATTERY_SERVICE,
+            listOf(
+                batteryLevelCharacteristic
+            )
+        )
+    }
+}
+
+class ServiceWrapper(val uuid: UUID, val characteristics: List<CharacteristicWrapper>) {
+    lateinit var bluetoothGattService: BluetoothGattService
+
+    fun init(bluetoothGattService: BluetoothGattService) {
+        this.bluetoothGattService = bluetoothGattService
+        val characteristicsByUuid = bluetoothGattService.characteristics.associateBy { it.uuid }
+        for (wrapper in characteristics) {
+            wrapper.init(characteristicsByUuid.getValue(wrapper.uuid))
+        }
+    }
+}
+
+class CharacteristicWrapper(val uuid: UUID) {
+    lateinit var characteristic: BluetoothGattCharacteristic
+
+    fun init(bluetoothGattCharacteristic: BluetoothGattCharacteristic) {
+        this.characteristic = bluetoothGattCharacteristic
+    }
+}
+
+/**
+ * Helper to create a full 128-bit UUID from a 16-bit standard Bluetooth alias.
+ * Bluetooth Base UUID: 0000xxxx-0000-1000-8000-00805F9B34FB
+ */
+fun standardUuid(shortId: String): UUID {
+    return UUID.fromString("0000$shortId-0000-1000-8000-00805f9b34fb")
 }
