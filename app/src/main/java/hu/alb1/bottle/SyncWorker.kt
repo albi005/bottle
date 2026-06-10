@@ -6,14 +6,13 @@ import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.seconds
 
 class SyncWorker(val appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
         return Result.success()
-
         if (ActivityCompat.checkSelfPermission(
                 appContext,
                 Manifest.permission.BLUETOOTH_SCAN
@@ -26,10 +25,10 @@ class SyncWorker(val appContext: Context, workerParams: WorkerParameters) :
         )
             return Result.failure()
 
-        val bleScanner = (appContext as BottleApplication).bleScanner
+        val app = appContext as BottleApplication
 
-        withTimeout(60.seconds){
-            bleScanner.ensureScanning(ScanningVersion.Background)
+        withTimeoutOrNull(60.seconds){
+            app.syncService.registerOwner(SyncOwnerKind.Worker)
         }
 
         return Result.success()

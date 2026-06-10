@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
             if (havePermissions.value) {
                 LaunchedEffect(true) {
                     val app = application as BottleApplication
-                    app.bleScanner.ensureScanning(ScanningVersion.Foreground)
+                    app.syncService.registerOwner(SyncOwnerKind.Ui)
                 }
             }
 

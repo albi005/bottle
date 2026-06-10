@@ -9,32 +9,26 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
-import android.content.Context
 import android.os.Build
 import android.os.ParcelUuid
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.mutableStateOf
-import androidx.core.content.getSystemService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
-import kotlin.concurrent.atomics.AtomicInt
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.decrementAndFetch
-import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.Duration.Companion.seconds
 
-class BleScanner(val context: Context) {
-    private val bluetoothManager: BluetoothManager = context.getSystemService<BluetoothManager>()!!
-    private val bluetoothAdapter = bluetoothManager.adapter
-    private val bleScanner = bluetoothAdapter.bluetoothLeScanner
-    private val app = context.applicationContext as BottleApplication
+class BleScanner(bluetoothManager: BluetoothManager) {
+    private val bleScanner = bluetoothManager.adapter.bluetoothLeScanner
 
     private val scanFilters = listOf(
         ScanFilter.Builder()
@@ -65,87 +59,78 @@ class BleScanner(val context: Context) {
         .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
         .build()
 
-    private val foregroundScanRequestCounter = AtomicInt(0)
-    private val backgroundScanRequestCounter = AtomicInt(0)
+    private var uiSyncOwnerCount = 0
+    private var workerSyncOwnerCount = 0
     val scanningState = mutableStateOf<ScanningState>(ScanningState.NotScanning)
 
-    private val reconciliationRequestChannel = Channel<Unit>(capacity = 1)
-
-    suspend fun ensureScanning(scanningVersion: ScanningVersion) {
-        val counter = when (scanningVersion) {
-            ScanningVersion.Foreground -> foregroundScanRequestCounter
-            ScanningVersion.Background -> backgroundScanRequestCounter
-        }
-        try {
-            counter.incrementAndFetch()
-            reconciliationRequestChannel.trySend(Unit)
-            awaitCancellation()
-        } finally {
-            counter.decrementAndFetch()
-            reconciliationRequestChannel.trySend(Unit)
-        }
+    fun update(uiCount: Int, workerCount: Int) {
+        uiSyncOwnerCount = uiCount
+        workerSyncOwnerCount = workerCount
+        reconciliationRequests.trySend(Unit)
     }
 
-    fun requestRescan() {
-        reconciliationRequestChannel.trySend(Unit)
+    private val reconciliationRequests = Channel<Unit>(capacity = 1)
+
+    fun requestManualScan() {
+        scanningState.value = ScanningState.NotScanning
+        reconciliationRequests.trySend(Unit)
     }
 
-    init {
-        app.applicationScope.launch { run() }
-    }
+    suspend fun loop() = channelFlow {
+        coroutineScope {
+            var scanningJob: Job? = null
 
-    private suspend fun run(): Nothing {
-        var scanningJob: Job? = null
+            @SuppressLint("MissingPermission")
+            @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
+            fun reconcile(desiredState: ScanningState) {
+                if (desiredState == ScanningState.Errored || desiredState == ScanningState.FinishedScanning)
+                    throw Exception() // why would you desire these
 
-        @SuppressLint("MissingPermission")
-        @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
-        fun reconcile(desiredState: ScanningState) {
-            if (desiredState == ScanningState.Errored || desiredState == ScanningState.FinishedScanning)
-                throw Exception() // why would you desire these
+                // already in the desired state
+                if (desiredState == scanningState.value) return
 
-            // already in the desired state
-            if (desiredState == scanningState.value) return
+                // stop if needed
+                when (scanningState.value) {
+                    is ScanningState.Scanning -> {
+                        scanningJob?.cancel()
+                    }
 
-            // stop if needed
-            when (scanningState.value) {
-                is ScanningState.Scanning -> {
-                    scanningJob?.cancel()
+                    ScanningState.Errored -> return // idk
+                    ScanningState.NotScanning, ScanningState.FinishedScanning -> {}
                 }
 
-                ScanningState.Errored -> return // idk
-                ScanningState.NotScanning, ScanningState.FinishedScanning -> {}
-            }
-
-            // start if needed
-            when (desiredState) {
-                is ScanningState.Scanning -> {
-                    scanningJob = app.applicationScope.launch {
-                        try {
-                            scanningState.value = desiredState
-                            runScanForAWhile(desiredState.version)
-                        } catch (exception: Exception) {
-                            if (exception is CancellationException)
-                                scanningState.value = ScanningState.NotScanning
-                            else
-                                scanningState.value = ScanningState.Errored
-                            throw exception
+                // start if needed
+                when (desiredState) {
+                    is ScanningState.Scanning -> {
+                        scanningJob = launch {
+                            try {
+                                scanningState.value = desiredState
+                                runScanForAWhile(desiredState.version)
+                                    .collect { send(it) }
+                            } catch (exception: Exception) {
+                                if (exception is CancellationException)
+                                    scanningState.value = ScanningState.NotScanning
+                                else
+                                    scanningState.value = ScanningState.Errored
+                                throw exception
+                            }
                         }
                     }
+
+                    ScanningState.NotScanning -> return
+                    else -> throw Exception()
                 }
-
-                ScanningState.NotScanning -> return
-                else -> throw Exception()
             }
-        }
 
-        while (true) {
-            reconciliationRequestChannel.receive()
+            while (true) {
+                reconciliationRequests.receive()
 
-            val desiredState = getDesiredScanningState(
-                foregroundScanRequestCounter.load(),
-                backgroundScanRequestCounter.load()
-            )
-            reconcile(desiredState)
+                val desiredState = getDesiredScanningState(
+                    uiSyncOwnerCount,
+                    workerSyncOwnerCount,
+                )
+                reconcile(desiredState)
+            }
         }
 
     }
@@ -157,32 +142,32 @@ class BleScanner(val context: Context) {
     }
 
     @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
-    private suspend fun runScanForAWhile(scanVersion: ScanningVersion) {
-        val app = context.applicationContext as BottleApplication
-        val appViewModel = app.appViewModel
-
+    private fun runScanForAWhile(scanVersion: ScanningVersion) = flow {
         when (scanVersion) {
             ScanningVersion.Foreground -> {
-                withTimeout(30.seconds) {
+                withTimeoutOrNull(30.seconds) {
                     scanAndFlowResults(lowLatencyScanSettings).collect {
-                        appViewModel.update(it)
+                        emit(it)
                     }
                 }
             }
 
-            ScanningVersion.Background -> {
-                withTimeout(30.seconds) {
+            ScanningVersion.Background -> run {
+                var foundAny = false
+
+                withTimeoutOrNull(30.seconds) {
                     scanAndFlowResults(passiveScanSettings).collect {
-                        appViewModel.update(it)
+                        emit(it)
+                        foundAny = true
                     }
                 }
 
-                if (appViewModel.devices.any())
-                    return
+                if (foundAny)
+                    return@run
 
-                withTimeout(20.seconds) {
+                withTimeoutOrNull(20.seconds) {
                     scanAndFlowResults(activeBackgroundScanSettings).collect {
-                        appViewModel.update(it)
+                        emit(it)
                     }
                 }
             }
