@@ -21,10 +21,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -33,8 +33,8 @@ import androidx.compose.ui.unit.dp
 import hu.alb1.bottle.BluetoothProfileState
 import hu.alb1.bottle.BottleApplication
 import hu.alb1.bottle.DeviceViewModel
+import hu.alb1.bottle.ScanningState
 import hu.alb1.bottle.ui.icon.bluetooth_connected
-import kotlinx.coroutines.runBlocking
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -44,18 +44,24 @@ fun DeviceListPage(modifier: Modifier = Modifier) {
     val app = LocalContext.current.applicationContext as BottleApplication
     val devices = app.appViewModel.devices.values
 
-    DisposableEffect(Unit) {
-        app.bleScanner.startScanning()
-        onDispose {
-            app.bleScanner.stopScanning()
-        }
-    }
-
     Box(modifier = modifier.padding(16.dp, 0.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for (device in devices) {
                 key(device) {
                     DeviceCard(device)
+                }
+            }
+
+            val scanState = app.bleScanner.scanningState.value
+            Box(Modifier.fillMaxWidth().padding(32.dp)) {
+                when (scanState) {
+                    is ScanningState.Scanning -> {
+                        CircularProgressIndicator(
+                            Modifier.align(Alignment.Center)
+                        )
+                    }
+                    ScanningState.Errored -> Text("Errored")
+                    else -> {}
                 }
             }
         }
@@ -96,8 +102,6 @@ fun DeviceCard(device: DeviceViewModel, modifier: Modifier = Modifier) {
             if (device.batteryLevelLoading.value) {
                 CircularProgressIndicator(modifier = Modifier.width(64.dp))
             }
-
-            runBlocking { this }
         }
     }
 }
@@ -138,7 +142,7 @@ fun DevicePingMarker(
 
             val currentRadius = minRadius + ((maxRadius - minRadius) * progress)
             val currentAlpha = 1f - progress
-            val currentStrokeWidth = (1f - progress) * 3f;
+            val currentStrokeWidth = (1f - progress) * 3f
 
             drawCircle(
                 color = pingColor.copy(alpha = currentAlpha),

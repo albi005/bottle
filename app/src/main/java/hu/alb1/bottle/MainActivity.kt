@@ -1,7 +1,6 @@
 package hu.alb1.bottle
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -14,72 +13,62 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
-import androidx.core.app.ActivityCompat
 import androidx.work.Constraints
-import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.WorkerParameters
 import dagger.hilt.android.AndroidEntryPoint
 import hu.alb1.bottle.ui.page.DeviceListPage
 import hu.alb1.bottle.ui.theme.BottleTheme
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
-const val SYNC_WORK_NAME = "bottleSync";
+const val SYNC_WORK_NAME = "bottleSync"
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    val havePermissions = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            if (havePermissions.value) {
+                LaunchedEffect(true) {
+                    val app = application as BottleApplication
+                    app.bleScanner.ensureScanning(ScanningVersion.Foreground)
+                }
+            }
+
             BottleTheme {
-                BottleApp(this.application)
+                BottleApp()
             }
         }
 
-        requestPermissions(
-            arrayOf(
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ), 67
-        )
-
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.BLUETOOTH_SCAN
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
-        }
+        havePermissions.value =
+            checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+            && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        if (!havePermissions.value)
+            requestPermissions(
+                arrayOf(
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT
+                ), 67
+            )
 
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 SYNC_WORK_NAME,
                 ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
-                PeriodicWorkRequestBuilder<SyncWork>(6.hours.toJavaDuration())
+                PeriodicWorkRequestBuilder<SyncWorker>(6.hours.toJavaDuration())
                     .setConstraints(
                         Constraints.Builder()
                             .setRequiresBatteryNotLow(true)
@@ -96,45 +85,15 @@ class MainActivity : ComponentActivity() {
         deviceId: Int
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults, deviceId)
-    }
-}
 
-class SyncWork(val appContext: Context, workerParams: WorkerParameters) :
-    CoroutineWorker(appContext, workerParams) {
-    override suspend fun doWork(): Result {
-        coroutineScope {
-            async {  }
-            launch {  }
-        }
-        return Result.success()
-
-        if (ActivityCompat.checkSelfPermission(
-                appContext,
-                Manifest.permission.BLUETOOTH_SCAN
-            ) != PackageManager.PERMISSION_GRANTED
-            ||
-            ActivityCompat.checkSelfPermission(
-                appContext,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) != PackageManager.PERMISSION_GRANTED
-        )
-            return Result.failure()
-
-        val bleScanner = (appContext as BottleApplication).bleScanner
-        bleScanner.startScanning()
-        try {
-            delay(30.seconds)
-        } finally {
-            bleScanner.stopScanning()
-        }
-
-        return Result.success()
+        if (grantResults.all { it == PackageManager.PERMISSION_GRANTED })
+            havePermissions.value = true
     }
 }
 
 @PreviewScreenSizes
 @Composable
-fun BottleApp(context: Context) {
+fun BottleApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
 
     NavigationSuiteScaffold(
@@ -169,20 +128,4 @@ enum class AppDestinations(
     HOME("Home", R.drawable.ic_home),
     FAVORITES("Favorites", R.drawable.ic_favorite),
     PROFILE("Profile", R.drawable.ic_account_box),
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    BottleTheme {
-        Greeting("Android")
-    }
 }
