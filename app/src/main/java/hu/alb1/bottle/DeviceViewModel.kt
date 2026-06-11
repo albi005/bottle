@@ -75,11 +75,7 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             ) {
                 super.onCharacteristicChanged(gatt, characteristic, value)
                 characteristicChangedChannel.trySend(
-                    CharacteristicChangedMessage(
-                        gatt,
-                        characteristic,
-                        value
-                    )
+                    CharacteristicChangedMessage(gatt, characteristic, value)
                 )
             }
 
@@ -90,14 +86,12 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                 status: Int
             ) {
                 super.onCharacteristicRead(gatt, characteristic, value, status)
-                characteristicReadChannel.trySend(
-                    CharacteristicReadMessage(
-                        gatt,
-                        characteristic,
-                        value,
-                        status
-                    )
-                )
+                val msg = if (status == BluetoothGatt.GATT_SUCCESS) {
+                    CharacteristicReadMessage.Success(gatt, characteristic, value)
+                } else {
+                    CharacteristicReadMessage.Error(gatt, characteristic, status)
+                }
+                characteristicReadChannel.trySend(msg)
             }
 
             override fun onCharacteristicWrite(
@@ -109,13 +103,12 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
             override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
                 super.onConnectionStateChange(gatt, status, newState)
-                connectionStateChangeChannel.trySend(
-                    ConnectionStateChangeMessage(
-                        gatt,
-                        status,
-                        BluetoothProfileState.fromRawValue(newState)
-                    )
-                )
+                val msg = if (status == BluetoothGatt.GATT_SUCCESS && gatt != null) {
+                    ConnectionStateChangeMessage.Success(gatt, BluetoothProfileState.fromRawValue(newState))
+                } else {
+                    ConnectionStateChangeMessage.Error(gatt, status)
+                }
+                connectionStateChangeChannel.trySend(msg)
             }
 
             override fun onDescriptorRead(
@@ -151,7 +144,12 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
             override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
                 super.onServicesDiscovered(gatt, status)
-                servicesDiscoveredChannel.trySend(ServicesDiscoveredMessage(gatt, status))
+                val msg = if (status == BluetoothGatt.GATT_SUCCESS && gatt != null) {
+                    ServicesDiscoveredMessage.Success(gatt)
+                } else {
+                    ServicesDiscoveredMessage.Error(gatt, status)
+                }
+                servicesDiscoveredChannel.trySend(msg)
             }
 
             override fun onSubrateChange(gatt: BluetoothGatt, subrateMode: Int, status: Int) =
@@ -161,9 +159,18 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
         launch {
             val gatt = connectionStateChangeChannel
                 .receiveAsFlow()
-                .mapNotNull {
-                    bluetoothConnectionState.value = it.newState
-                    it.gatt
+                .mapNotNull { msg ->
+                    when (msg) {
+                        is ConnectionStateChangeMessage.Success -> {
+                            bluetoothConnectionState.value = msg.newState
+                            if (msg.newState == BluetoothProfileState.CONNECTED) msg.gatt else null
+                        }
+
+                        is ConnectionStateChangeMessage.Error -> {
+                            bluetoothConnectionState.value = BluetoothProfileState.DISCONNECTED
+                            null
+                        }
+                    }
                 }
                 .first()
 
@@ -172,23 +179,27 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
 
         launch {
             for (msg in servicesDiscoveredChannel) {
-                val gatt = msg.gatt ?: continue
+                val gatt = when (msg) {
+                    is ServicesDiscoveredMessage.Success -> msg.gatt
+                    is ServicesDiscoveredMessage.Error -> continue
+                }
 
-                gattWrapper = BottleGattWrapper(gatt)
+                val wrapper = BottleGattWrapper(gatt)
+                gattWrapper = wrapper
 
                 gatt.setCharacteristicNotification(
-                    gattWrapper.nordicUartService.txCharacteristic.characteristic,
+                    wrapper.nordicUartService.txCharacteristic.characteristic,
                     true
                 )
 
-                val txChar = gattWrapper.nordicUartService.txCharacteristic.characteristic
+                val txChar = wrapper.nordicUartService.txCharacteristic.characteristic
                 val cccd =
                     txChar.getDescriptor(BleIdentifiers.CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR)
 
                 (context.applicationContext as BottleApplication).applicationScope.launch {
                     delay(1000)
                     gatt.writeCharacteristic(
-                        gattWrapper.nordicUartService.rxCharacteristic.characteristic,
+                        wrapper.nordicUartService.rxCharacteristic.characteristic,
                         CapBleRequest(
                             requestId = 0,
                             body = AnyMessage.pack(RequestGetCapTofState())
@@ -204,7 +215,9 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
 
         launch {
             for (msg in characteristicReadChannel) {
-                if (msg.characteristic == gattWrapper!!.batteryService.batteryLevelCharacteristic) {
+                if (msg is CharacteristicReadMessage.Success &&
+                    msg.characteristic == gattWrapper!!.batteryService.batteryLevelCharacteristic
+                ) {
                     batteryLevelLoading.value = false
                     batteryLevel.intValue = msg.value[0].toInt()
                 }
@@ -242,24 +255,30 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
     private val requestIdCounter = AtomicInt(0)
 }
 
-data class ConnectionStateChangeMessage(
-    val gatt: BluetoothGatt?,
-    val status: Int,
-    val newState: BluetoothProfileState
-)
+sealed interface ConnectionStateChangeMessage {
+    data class Success(val gatt: BluetoothGatt, val newState: BluetoothProfileState) : ConnectionStateChangeMessage
+    data class Error(val gatt: BluetoothGatt?, val status: Int) : ConnectionStateChangeMessage
+}
 
-data class ServicesDiscoveredMessage(
-    val gatt: BluetoothGatt?,
-    val status: Int
-)
+sealed interface ServicesDiscoveredMessage {
+    data class Success(val gatt: BluetoothGatt) : ServicesDiscoveredMessage
+    data class Error(val gatt: BluetoothGatt?, val status: Int) : ServicesDiscoveredMessage
+}
 
-@Suppress("ArrayInDataClass") // don't care
-data class CharacteristicReadMessage(
-    val gatt: BluetoothGatt,
-    val characteristic: BluetoothGattCharacteristic,
-    val value: ByteArray,
-    val status: Int
-)
+sealed interface CharacteristicReadMessage {
+    @Suppress("ArrayInDataClass")
+    data class Success(
+        val gatt: BluetoothGatt,
+        val characteristic: BluetoothGattCharacteristic,
+        val value: ByteArray
+    ) : CharacteristicReadMessage
+
+    data class Error(
+        val gatt: BluetoothGatt,
+        val characteristic: BluetoothGattCharacteristic,
+        val status: Int
+    ) : CharacteristicReadMessage
+}
 
 @Suppress("ArrayInDataClass")
 data class CharacteristicChangedMessage(
