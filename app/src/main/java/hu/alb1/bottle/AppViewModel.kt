@@ -15,10 +15,17 @@ import kotlin.uuid.ExperimentalUuidApi
 class AppViewModel(val coroutineScope: CoroutineScope, val context: Context) {
     val devices = mutableStateMapOf<BluetoothDevice, DeviceViewModel>()
 
+    @Synchronized
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun update(scanResult: ScanResult) {
-        val device =
-            devices.getOrPut(scanResult.device) { DeviceViewModel(coroutineScope, context) }
+    fun update(scanResult: ScanResult): DeviceViewModel? {
+        var isNew = false
+        val device = devices.getOrPut(scanResult.device) {
+            isNew = true
+            DeviceViewModel(coroutineScope, context)
+        }
         device.update(scanResult)
+        if (isNew)
+            return device
+        return null
     }
 }

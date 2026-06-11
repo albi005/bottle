@@ -40,7 +40,8 @@ class SyncService(val appViewModel: AppViewModel, val bleScanner: BleScanner) {
     suspend fun sync(): Nothing = coroutineScope {
         launch {
             bleScanner.loop().collect {
-                appViewModel.update(it)
+                val newDevice = appViewModel.update(it) ?: return@collect
+                newDevice.syncLoop
             }
         }
 
