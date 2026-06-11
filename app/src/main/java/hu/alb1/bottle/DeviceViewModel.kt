@@ -15,9 +15,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.google.protobuf.any
-import hu.alb1.bottle.proto.capBleRequest
-import hu.alb1.bottle.proto.requestGetCapTofState
+import com.squareup.wire.AnyMessage
+import hu.alb1.bottle.proto.CapBleRequest
+import hu.alb1.bottle.proto.CapBleResponse
+import hu.alb1.bottle.proto.RequestGetCapTofState
+import hu.alb1.bottle.proto.ResponseGetCapTofState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -68,8 +70,10 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             super.onCharacteristicChanged(gatt, characteristic, value)
 
             if (characteristic == gattWrapper.nordicUartService.txCharacteristic.characteristic) {
-                println(value)
-
+                val response = CapBleResponse.ADAPTER.decode(value)
+                val tofState = response.body?.unpackOrNull(ResponseGetCapTofState.ADAPTER)
+                println(response)
+                println(tofState)
             }
         }
 
@@ -172,12 +176,10 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                 delay(1000)
                 gatt.writeCharacteristic(
                     gattWrapper.nordicUartService.rxCharacteristic.characteristic,
-                    capBleRequest {
-                        requestId = 0
-                        body = any {
-                            value = requestGetCapTofState {}.toByteString()
-                        }
-                    }.toByteArray(),
+                    CapBleRequest(
+                        requestId = 0,
+                        body = AnyMessage.pack(RequestGetCapTofState())
+                    ).encode(),
                     BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
                 )
             }

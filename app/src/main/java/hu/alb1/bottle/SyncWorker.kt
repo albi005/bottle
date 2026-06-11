@@ -12,7 +12,6 @@ import kotlin.time.Duration.Companion.seconds
 class SyncWorker(val appContext: Context, workerParams: WorkerParameters) :
     CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
-        return Result.success()
         if (ActivityCompat.checkSelfPermission(
                 appContext,
                 Manifest.permission.BLUETOOTH_SCAN

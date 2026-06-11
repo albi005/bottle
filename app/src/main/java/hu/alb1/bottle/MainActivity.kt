@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 SYNC_WORK_NAME,
-                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 PeriodicWorkRequestBuilder<SyncWorker>(6.hours.toJavaDuration())
                     .setConstraints(
                         Constraints.Builder()

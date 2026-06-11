@@ -1,9 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.google.protobuf)
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.google.dagger.hilt.android)
+    alias(libs.plugins.wire)
 }
 
 android {
@@ -62,30 +62,18 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
-    // https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started
+    // CoroutineWorker https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.work.runtime.ktx)
 
-    // https://developer.android.com/training/dependency-injection/hilt-android
+    // Dependency injection https://developer.android.com/training/dependency-injection/hilt-android
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
+
+    // Protobuf https://square.github.io/wire/
+    api(libs.wire.runtime)
 }
 
-protobuf {
-    protoc {
-        artifact = "com.google.protobuf:protoc:4.35.0"
-    }
-
-    generateProtoTasks {
-        all().forEach { task ->
-            task.builtins {
-                create("java") {
-                    option("lite")
-                }
-                create("kotlin") {
-                    option("lite")
-                }
-            }
-        }
-    }
+wire {
+    kotlin {}
 }
