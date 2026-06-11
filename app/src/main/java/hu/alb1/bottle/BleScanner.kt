@@ -76,7 +76,7 @@ class BleScanner(bluetoothManager: BluetoothManager) {
         reconciliationRequests.trySend(Unit)
     }
 
-    suspend fun loop() = channelFlow {
+    fun loop() = channelFlow {
         coroutineScope {
             var scanningJob: Job? = null
 
