@@ -2,6 +2,7 @@
 activityCompose = "1.8.0"
 agp = "9.2.1"
 composeBom = "2025.12.00"
+healthConnect = "1.2.0-alpha04"
 coreKtx = "1.10.1"
 espressoCore = "3.5.1"
 hiltAndroid = "2.59.2"
@@ -17,6 +18,7 @@ room = "2.8.4"
 workRuntime = "2.11.2"
 
 [libraries]
+androidx-health-connect-client = { module = "androidx.health.connect:connect-client", version.ref = "healthConnect" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "workRuntime" }
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntime" }

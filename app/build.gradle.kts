@@ -9,15 +9,14 @@ plugins {
 android {
     namespace = "hu.alb1.bottle"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
+        version = release(37) {
         }
     }
 
     defaultConfig {
         applicationId = "hu.alb1.bottle"
         minSdk = 36
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -79,6 +78,9 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     testImplementation(libs.androidx.room.testing)
     implementation(libs.androidx.room.paging)
+
+    // https://developer.android.com/health-and-fitness/health-connect/get-started
+    implementation(libs.androidx.health.connect.client)
 }
 
 wire {

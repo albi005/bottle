@@ -28,7 +28,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration.Companion.seconds
 
 class BleScanner(bluetoothManager: BluetoothManager) {
-    private val bleScanner = bluetoothManager.adapter.bluetoothLeScanner
+    private val bleScanner = bluetoothManager.adapter.bluetoothLeScanner!!
 
     private val scanFilters = listOf(
         ScanFilter.Builder()

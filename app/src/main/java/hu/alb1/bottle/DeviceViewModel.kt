@@ -7,21 +7,26 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattConnectionSettings
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.le.ScanResult
 import android.content.Context
+import android.os.Build
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.room.concurrent.AtomicInt
 import com.squareup.wire.AnyMessage
 import hu.alb1.bottle.proto.CapBleRequest
 import hu.alb1.bottle.proto.CapBleResponse
 import hu.alb1.bottle.proto.RequestGetCapTofState
 import hu.alb1.bottle.proto.ResponseGetCapTofState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -52,14 +57,25 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private suspend fun runSyncLoop(bluetoothDevice: BluetoothDevice) {
-        bluetoothDevice.connectGatt(
-            context,
-            false,
-            bluetoothGattCallback,
-            BluetoothDevice.TRANSPORT_LE
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN)
+            bluetoothDevice.connectGatt(
+                BluetoothGattConnectionSettings.Builder()
+                    .build(),
+                Dispatchers.IO.limitedParallelism(1).asExecutor(),
+                bluetoothGattCallback,
+            )
+        else
+            bluetoothDevice.connectGatt(
+                context,
+                false,
+                bluetoothGattCallback,
+                BluetoothDevice.TRANSPORT_LE
+            )
         bluetoothConnectionState.value = BluetoothProfileState.CONNECTING
     }
+
+    private val requestIdCounter = AtomicInt(0)
+
 
     private val bluetoothGattCallback = object : BluetoothGattCallback() {
         override fun onCharacteristicChanged(
