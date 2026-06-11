@@ -13,6 +13,7 @@ lifecycleRuntimeKtx = "2.6.1"
 protobufJavalite = "4.35.0"
 protobufKotlinLite = "4.35.0"
 wire = "6.4.0"
+room = "2.8.4"
 workRuntime = "2.11.2"
 
 [libraries]
@@ -38,6 +39,11 @@ androidx-compose-material3-adaptive-navigation-suite = { group = "androidx.compo
 protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protobufJavalite" }
 protobuf-kotlin-lite = { module = "com.google.protobuf:protobuf-kotlin-lite", version.ref = "protobufKotlinLite" }
 wire-runtime = { module = "com.squareup.wire:wire-runtime", version.ref = "wire" }
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
+androidx-room-paging = { module = "androidx.room:room-paging", version.ref = "room" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

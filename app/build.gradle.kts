@@ -72,6 +72,13 @@ dependencies {
 
     // Protobuf https://square.github.io/wire/
     api(libs.wire.runtime)
+
+    // SQLite ORM and stuff https://developer.android.com/training/data-storage/room
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.ktx)
+    testImplementation(libs.androidx.room.testing)
+    implementation(libs.androidx.room.paging)
 }
 
 wire {
