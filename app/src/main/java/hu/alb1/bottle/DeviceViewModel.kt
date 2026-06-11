@@ -15,9 +15,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.google.protobuf.any
+import hu.alb1.bottle.proto.capBleRequest
+import hu.alb1.bottle.proto.requestGetCapTofState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -31,6 +36,7 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
     var batteryLevel = mutableIntStateOf(-1)
     var batteryLevelLoading = mutableStateOf(false)
     var bluetoothConnectionState = mutableStateOf(BluetoothProfileState.DISCONNECTED)
+    lateinit var gattWrapper: BottleGattWrapper
 
     @Synchronized
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -60,6 +66,11 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             value: ByteArray
         ) {
             super.onCharacteristicChanged(gatt, characteristic, value)
+
+            if (characteristic == gattWrapper.nordicUartService.txCharacteristic.characteristic) {
+                println(value)
+
+            }
         }
 
         override fun onCharacteristicRead(
@@ -70,7 +81,7 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
         ) {
             super.onCharacteristicRead(gatt, characteristic, value, status)
 
-            if (characteristic.uuid == BleIdentifiers.BATTERY_LEVEL_CHAR) {
+            if (characteristic == gattWrapper.batteryService.batteryLevelCharacteristic) {
                 batteryLevelLoading.value = false
                 batteryLevel.intValue = value[0].toInt()
             }
@@ -147,11 +158,31 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             super.onServicesDiscovered(gatt, status)
             if (gatt == null) return
 
-            val batteryService = gatt.services.first {it.uuid == BleIdentifiers.BATTERY_SERVICE}
-            val batteryLevelCharacteristic = batteryService.characteristics.first {it.uuid == BleIdentifiers.BATTERY_LEVEL_CHAR}
-            gatt.setCharacteristicNotification(batteryLevelCharacteristic, true)
-            gatt.setCharacteristicNotification()
-            gatt.readCharacteristic(batteryLevelCharacteristic)
+            gattWrapper = BottleGattWrapper(gatt)
+//            gatt.readCharacteristic(
+//                gattWrapper.batteryService.batteryLevelCharacteristic.characteristic
+//            )
+            gatt.setCharacteristicNotification(
+                gattWrapper.nordicUartService.txCharacteristic.characteristic,
+                true
+            )
+            val txChar = gattWrapper.nordicUartService.txCharacteristic.characteristic
+            val cccd = txChar.getDescriptor(BleIdentifiers.CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR)
+            (context.applicationContext as BottleApplication).applicationScope.launch {
+                delay(1000)
+                gatt.writeCharacteristic(
+                    gattWrapper.nordicUartService.rxCharacteristic.characteristic,
+                    capBleRequest {
+                        requestId = 0
+                        body = any {
+                            value = requestGetCapTofState {}.toByteString()
+                        }
+                    }.toByteArray(),
+                    BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                )
+            }
+            gatt.writeDescriptor(cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+
             batteryLevelLoading.value = true
         }
 

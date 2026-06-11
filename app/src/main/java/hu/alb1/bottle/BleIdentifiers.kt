@@ -1,5 +1,6 @@
 package hu.alb1.bottle
 
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattService
 import java.util.UUID
@@ -42,20 +43,35 @@ object BleIdentifiers {
     val CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR = standardUuid("2902")
 }
 
-class BatteryService {
-    val batteryLevelCharacteristic = CharacteristicWrapper(BleIdentifiers.BATTERY_LEVEL_CHAR)
+class BottleGattWrapper(val bluetoothGatt: BluetoothGatt) {
+    val batteryService = BatteryService()
+    val nordicUartService = NordicUartService()
 
-    constructor() {
-        ServiceWrapper(
-            BleIdentifiers.BATTERY_SERVICE,
-            listOf(
-                batteryLevelCharacteristic
+    init {
+        val servicesById = bluetoothGatt.services.associateBy { it.uuid }
+        val serviceList = listOf(batteryService, nordicUartService)
+        for (service in serviceList) {
+            service.init(
+                servicesById.getValue(service.uuid)
             )
-        )
+        }
     }
 }
 
-class ServiceWrapper(val uuid: UUID, val characteristics: List<CharacteristicWrapper>) {
+class BatteryService : ServiceWrapper() {
+    val batteryLevelCharacteristic = CharacteristicWrapper(BleIdentifiers.BATTERY_LEVEL_CHAR)
+    override val uuid = BleIdentifiers.BATTERY_SERVICE
+    override val characteristics = listOf(batteryLevelCharacteristic)
+}
+
+class NordicUartService : ServiceWrapper() {
+    val rxCharacteristic = CharacteristicWrapper(BleIdentifiers.UART_RX_CHAR)
+    val txCharacteristic = CharacteristicWrapper(BleIdentifiers.UART_TX_CHAR)
+    override val uuid: UUID = BleIdentifiers.NORDIC_UART_SERVICE
+    override val characteristics = listOf(rxCharacteristic, txCharacteristic)
+}
+
+abstract class ServiceWrapper {
     lateinit var bluetoothGattService: BluetoothGattService
 
     fun init(bluetoothGattService: BluetoothGattService) {
@@ -65,6 +81,9 @@ class ServiceWrapper(val uuid: UUID, val characteristics: List<CharacteristicWra
             wrapper.init(characteristicsByUuid.getValue(wrapper.uuid))
         }
     }
+
+    abstract val uuid: UUID
+    protected abstract val characteristics: List<CharacteristicWrapper>
 }
 
 class CharacteristicWrapper(val uuid: UUID) {
