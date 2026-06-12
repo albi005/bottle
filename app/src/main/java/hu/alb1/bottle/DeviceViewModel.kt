@@ -17,6 +17,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.health.connect.client.records.HydrationRecord
+import androidx.health.connect.client.records.metadata.Metadata
 import com.squareup.wire.AnyMessage
 import hu.alb1.bottle.proto.CapBleRequest
 import hu.alb1.bottle.proto.CapBleResponse
@@ -287,6 +289,17 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                     data class WithTime(val time: Instant, val capTofLog: CapTofLog)
                     tofState.items.map { capTofLog -> WithTime(Instant.fromEpochSeconds(capTofLog.timestamp), capTofLog) }
                         .forEach { x -> println(x) }
+
+                    val app = context.applicationContext as BottleApplication
+                    HydrationRecord(
+                        startTime = null,
+                        endTime = null,
+                        volume = null,
+                        metadata = Metadata(
+                            kind =
+                        )
+                    )
+
                     if (tofState.items.size < limit) cancel()
                     timestamp = tofState.items.maxOf { it.timestamp }
                 }
