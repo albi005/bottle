@@ -91,8 +91,6 @@ fun DeviceCard(device: DeviceViewModel, modifier: Modifier = Modifier) {
                         BluetoothProfileState.DISCONNECTED -> {}
                         BluetoothProfileState.CONNECTED ->
                             Icon(bluetooth_connected, null)
-
-                        BluetoothProfileState.UNKNOWN -> Text("?")
                     }
                 }
             }

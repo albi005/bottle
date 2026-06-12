@@ -1,14 +1,15 @@
 package hu.alb1.bottle
 
+import android.bluetooth.BluetoothProfile
+
 enum class BluetoothProfileState(val rawValue: Int) {
-    DISCONNECTED(0),
-    CONNECTING(1),
-    CONNECTED(2),
-    DISCONNECTING(3),
-    UNKNOWN(-1);
+    DISCONNECTED(BluetoothProfile.STATE_DISCONNECTED),
+    CONNECTING(BluetoothProfile.STATE_CONNECTING),
+    CONNECTED(BluetoothProfile.STATE_CONNECTED),
+    DISCONNECTING(BluetoothProfile.STATE_DISCONNECTING);
 
     companion object {
         private val map = entries.associateBy { it.rawValue }
-        fun fromRawValue(value: Int) = map[value] ?: UNKNOWN
+        fun fromRawValue(value: Int) = map[value] ?: DISCONNECTED
     }
 }

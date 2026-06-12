@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTime::class)
+@file:OptIn(ExperimentalTime::class, ExperimentalAtomicApi::class)
 
 package hu.alb1.bottle
 
@@ -17,24 +17,29 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.room.concurrent.AtomicInt
 import com.squareup.wire.AnyMessage
 import hu.alb1.bottle.proto.CapBleRequest
 import hu.alb1.bottle.proto.CapBleResponse
-import hu.alb1.bottle.proto.RequestGetCapTofState
-import hu.alb1.bottle.proto.ResponseGetCapTofState
+import hu.alb1.bottle.proto.CapEnumLogQuerySearchAlgo
+import hu.alb1.bottle.proto.CapLogQuery
+import hu.alb1.bottle.proto.CapTofLog
+import hu.alb1.bottle.proto.RequestGetCapTofLog
+import hu.alb1.bottle.proto.ResponseGetCapTofLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.fetchAndIncrement
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -61,9 +66,9 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private suspend fun runSyncLoop(bluetoothDevice: BluetoothDevice) = coroutineScope {
-        var gattWrapper: BottleGattWrapper? = null
         val connectionStateChangeChannel = Channel<ConnectionStateChangeMessage>(Channel.UNLIMITED)
         val servicesDiscoveredChannel = Channel<ServicesDiscoveredMessage>(Channel.UNLIMITED)
+        val descriptorWriteChannel = Channel<DescriptorWriteMessage>(Channel.UNLIMITED)
         val characteristicReadChannel = Channel<CharacteristicReadMessage>(Channel.UNLIMITED)
         val characteristicChangedChannel = Channel<CharacteristicChangedMessage>(Channel.UNLIMITED)
 
@@ -86,10 +91,11 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                 status: Int
             ) {
                 super.onCharacteristicRead(gatt, characteristic, value, status)
-                val msg = if (status == BluetoothGatt.GATT_SUCCESS) {
+                val gattStatus = GattStatus.fromRawValue(status)
+                val msg = if (gattStatus == GattStatus.SUCCESS) {
                     CharacteristicReadMessage.Success(gatt, characteristic, value)
                 } else {
-                    CharacteristicReadMessage.Error(gatt, characteristic, status)
+                    CharacteristicReadMessage.Error(gatt, characteristic, gattStatus)
                 }
                 characteristicReadChannel.trySend(msg)
             }
@@ -103,12 +109,20 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
             override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
                 super.onConnectionStateChange(gatt, status, newState)
-                val msg = if (status == BluetoothGatt.GATT_SUCCESS && gatt != null) {
-                    ConnectionStateChangeMessage.Success(gatt, BluetoothProfileState.fromRawValue(newState))
+                val gattStatus = GattStatus.fromRawValue(status)
+                val msg = if (gattStatus == GattStatus.SUCCESS && gatt != null) {
+                    when (newState) {
+                        BluetoothGatt.STATE_CONNECTED -> ConnectionStateChangeMessage.Connected(gatt)
+                        BluetoothGatt.STATE_DISCONNECTED -> ConnectionStateChangeMessage.Disconnected(
+                            gatt
+                        )
+
+                        else -> throw Exception()
+                    }
                 } else {
-                    ConnectionStateChangeMessage.Error(gatt, status)
+                    ConnectionStateChangeMessage.Error(gatt, gattStatus)
                 }
-                connectionStateChangeChannel.trySend(msg)
+                msg.let { connectionStateChangeChannel.trySend(it) }
             }
 
             override fun onDescriptorRead(
@@ -122,7 +136,17 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                 gatt: BluetoothGatt?,
                 descriptor: BluetoothGattDescriptor?,
                 status: Int
-            ) = super.onDescriptorWrite(gatt, descriptor, status)
+            ) {
+                super.onDescriptorWrite(gatt, descriptor, status)
+                val gattStatus = GattStatus.fromRawValue(status)
+                val msg =
+                    if (gattStatus == GattStatus.SUCCESS && gatt != null && descriptor != null) {
+                        DescriptorWriteMessage.Success(gatt, descriptor)
+                    } else {
+                        DescriptorWriteMessage.Error(gatt, descriptor, gattStatus)
+                    }
+                descriptorWriteChannel.trySend(msg)
+            }
 
             override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) =
                 super.onMtuChanged(gatt, mtu, status)
@@ -144,10 +168,11 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
             override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
                 super.onServicesDiscovered(gatt, status)
-                val msg = if (status == BluetoothGatt.GATT_SUCCESS && gatt != null) {
+                val gattStatus = GattStatus.fromRawValue(status)
+                val msg = if (gattStatus == GattStatus.SUCCESS && gatt != null) {
                     ServicesDiscoveredMessage.Success(gatt)
                 } else {
-                    ServicesDiscoveredMessage.Error(gatt, status)
+                    ServicesDiscoveredMessage.Error(gatt, gattStatus)
                 }
                 servicesDiscoveredChannel.trySend(msg)
             }
@@ -161,79 +186,133 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                 .receiveAsFlow()
                 .mapNotNull { msg ->
                     when (msg) {
-                        is ConnectionStateChangeMessage.Success -> {
-                            bluetoothConnectionState.value = msg.newState
-                            if (msg.newState == BluetoothProfileState.CONNECTED) msg.gatt else null
+                        is ConnectionStateChangeMessage.Connected -> {
+                            bluetoothConnectionState.value = BluetoothProfileState.CONNECTED
+                            msg.gatt
+                        }
+
+                        is ConnectionStateChangeMessage.Disconnected -> {
+                            bluetoothConnectionState.value = BluetoothProfileState.DISCONNECTED
+                            null
                         }
 
                         is ConnectionStateChangeMessage.Error -> {
                             bluetoothConnectionState.value = BluetoothProfileState.DISCONNECTED
-                            null
+                            throw Exception()
                         }
                     }
                 }
                 .first()
 
             gatt.discoverServices()
-        }
 
-        launch {
-            for (msg in servicesDiscoveredChannel) {
-                val gatt = when (msg) {
-                    is ServicesDiscoveredMessage.Success -> msg.gatt
-                    is ServicesDiscoveredMessage.Error -> continue
-                }
+            servicesDiscoveredChannel.receive()
+                .let { if (it is ServicesDiscoveredMessage.Error) throw Exception() }
 
-                val wrapper = BottleGattWrapper(gatt)
-                gattWrapper = wrapper
+            val gattWrapper = BottleGattWrapper(gatt)
 
-                gatt.setCharacteristicNotification(
-                    wrapper.nordicUartService.txCharacteristic.characteristic,
-                    true
-                )
+            gatt.setCharacteristicNotification(
+                gattWrapper.nordicUartService.txCharacteristic.characteristic,
+                true
+            )
+            val txChar = gattWrapper.nordicUartService.txCharacteristic.characteristic
+            val clientCharacteristicConfigDescriptor =
+                txChar.getDescriptor(BleIdentifiers.CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR)
+            gatt.writeDescriptor(
+                clientCharacteristicConfigDescriptor,
+                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            )
 
-                val txChar = wrapper.nordicUartService.txCharacteristic.characteristic
-                val cccd =
-                    txChar.getDescriptor(BleIdentifiers.CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR)
+            descriptorWriteChannel.receiveAsFlow()
+                .filter { it is DescriptorWriteMessage.Success && it.descriptor == clientCharacteristicConfigDescriptor }
+                .first()
 
-                (context.applicationContext as BottleApplication).applicationScope.launch {
-                    delay(1000)
+//            gatt.writeCharacteristic(
+//                gattWrapper.nordicUartService.rxCharacteristic.characteristic,
+//                CapBleRequest(
+//                    requestId = 0,
+//                    body = AnyMessage.pack(RequestGetCapTofState())
+//                ).encode(),
+//                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+//            )
+//
+//            characteristicChangedChannel.receive()
+//                .let {
+//                    val response = CapBleResponse.ADAPTER.decode(it.value)
+//                    val tofState = response.body?.unpackOrNull(ResponseGetCapTofState.ADAPTER)
+//                    println(response)
+//                    println(tofState)
+//                }
+
+            val limit = 6
+            gatt.writeCharacteristic(
+                gattWrapper.nordicUartService.rxCharacteristic.characteristic,
+                CapBleRequest(
+                    requestId = requestIdCounter.fetchAndIncrement(),
+                    body = AnyMessage.pack(
+                        RequestGetCapTofLog(
+                            CapLogQuery(
+                                fromTimestamp = 0,
+                                limit = limit,
+                                algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP
+                            )
+                        )
+                    )
+                ).encode(),
+                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            )
+
+            var timestamp: Long = 0
+            characteristicChangedChannel.receiveAsFlow()
+                .collect { characteristicChangedMessage ->
                     gatt.writeCharacteristic(
-                        wrapper.nordicUartService.rxCharacteristic.characteristic,
+                        gattWrapper.nordicUartService.rxCharacteristic.characteristic,
                         CapBleRequest(
-                            requestId = 0,
-                            body = AnyMessage.pack(RequestGetCapTofState())
+                            requestId = requestIdCounter.fetchAndIncrement(),
+                            body = AnyMessage.pack(
+                                RequestGetCapTofLog(
+                                    CapLogQuery(
+                                        fromTimestamp = timestamp,
+                                        limit = limit,
+                                        algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP
+                                    )
+                                )
+                            )
                         ).encode(),
                         BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
                     )
-                }
-                gatt.writeDescriptor(cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
 
-                batteryLevelLoading.value = true
-            }
+                    val response = CapBleResponse.ADAPTER.decode(characteristicChangedMessage.value)
+                    val tofState = response.body!!.unpack(ResponseGetCapTofLog.ADAPTER)
+                    data class WithTime(val time: Instant, val capTofLog: CapTofLog)
+                    tofState.items.map { capTofLog -> WithTime(Instant.fromEpochSeconds(capTofLog.timestamp), capTofLog) }
+                        .forEach { x -> println(x) }
+                    if (tofState.items.size < limit) cancel()
+                    timestamp = tofState.items.maxOf { it.timestamp }
+                }
         }
 
-        launch {
-            for (msg in characteristicReadChannel) {
-                if (msg is CharacteristicReadMessage.Success &&
-                    msg.characteristic == gattWrapper!!.batteryService.batteryLevelCharacteristic
-                ) {
-                    batteryLevelLoading.value = false
-                    batteryLevel.intValue = msg.value[0].toInt()
-                }
-            }
-        }
+//        launch {
+//            for (msg in characteristicReadChannel) {
+//                if (msg is CharacteristicReadMessage.Success &&
+//                    msg.characteristic == gattWrapper!!.batteryService.batteryLevelCharacteristic
+//                ) {
+//                    batteryLevelLoading.value = false
+//                    batteryLevel.intValue = msg.value[0].toInt()
+//                }
+//            }
+//        }
 
-        launch {
-            for (msg in characteristicChangedChannel) {
-                if (msg.characteristic == gattWrapper!!.nordicUartService.txCharacteristic.characteristic) {
-                    val response = CapBleResponse.ADAPTER.decode(msg.value)
-                    val tofState = response.body?.unpackOrNull(ResponseGetCapTofState.ADAPTER)
-                    println(response)
-                    println(tofState)
-                }
-            }
-        }
+//        launch {
+//            for (msg in characteristicChangedChannel) {
+//                if (msg.characteristic == gattWrapper!!.nordicUartService.txCharacteristic.characteristic) {
+//                    val response = CapBleResponse.ADAPTER.decode(msg.value)
+//                    val tofState = response.body?.unpackOrNull(ResponseGetCapTofState.ADAPTER)
+//                    println(response)
+//                    println(tofState)
+//                }
+//            }
+//        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
             bluetoothDevice.connectGatt(
@@ -252,17 +331,30 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
         bluetoothConnectionState.value = BluetoothProfileState.CONNECTING
     }
 
-    private val requestIdCounter = AtomicInt(0)
+    private val requestIdCounter = kotlin.concurrent.atomics.AtomicInt(0)
+}
+
+sealed interface DescriptorWriteMessage {
+    data class Success(val gatt: BluetoothGatt, val descriptor: BluetoothGattDescriptor) :
+        DescriptorWriteMessage
+
+    data class Error(
+        val gatt: BluetoothGatt?,
+        val descriptor: BluetoothGattDescriptor?,
+        val status: GattStatus
+    ) : DescriptorWriteMessage
 }
 
 sealed interface ConnectionStateChangeMessage {
-    data class Success(val gatt: BluetoothGatt, val newState: BluetoothProfileState) : ConnectionStateChangeMessage
-    data class Error(val gatt: BluetoothGatt?, val status: Int) : ConnectionStateChangeMessage
+    data class Connected(val gatt: BluetoothGatt) : ConnectionStateChangeMessage
+    data class Disconnected(val gatt: BluetoothGatt?) : ConnectionStateChangeMessage
+    data class Error(val gatt: BluetoothGatt?, val status: GattStatus) :
+        ConnectionStateChangeMessage
 }
 
 sealed interface ServicesDiscoveredMessage {
     data class Success(val gatt: BluetoothGatt) : ServicesDiscoveredMessage
-    data class Error(val gatt: BluetoothGatt?, val status: Int) : ServicesDiscoveredMessage
+    data class Error(val gatt: BluetoothGatt?, val status: GattStatus) : ServicesDiscoveredMessage
 }
 
 sealed interface CharacteristicReadMessage {
@@ -276,7 +368,7 @@ sealed interface CharacteristicReadMessage {
     data class Error(
         val gatt: BluetoothGatt,
         val characteristic: BluetoothGattCharacteristic,
-        val status: Int
+        val status: GattStatus
     ) : CharacteristicReadMessage
 }
 
