@@ -19,18 +19,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,9 +43,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.paging.ExperimentalPagingApi
+import androidx.paging.LoadState
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
-import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import hu.alb1.bottle.BluetoothProfileState
 import hu.alb1.bottle.BottleApplication
@@ -49,6 +53,7 @@ import hu.alb1.bottle.DeviceViewModel
 import hu.alb1.bottle.ScanningState
 import hu.alb1.bottle.data.TofLogEntry
 import hu.alb1.bottle.ui.icon.bluetooth_connected
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.ExperimentalTime
@@ -145,39 +150,99 @@ fun ToFLogList() {
         }
     }
     val lazyPagingItems = pager.flow.collectAsLazyPagingItems()
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    var shouldAutoScrollToTop by rememberSaveable { mutableStateOf(true) }
 
-    LazyColumn(
+    // Newest logs are at index 0. Keep this as a sticky state like chat: once the
+    // user scrolls away, new logs should not pull them back until they return.
+    val atTop by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+        }
+    }
+    val newestItemId by remember {
+        derivedStateOf {
+            lazyPagingItems.itemSnapshotList.items.firstOrNull()?.id
+        }
+    }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.lastScrolledForward && shouldAutoScrollToTop) {
+            shouldAutoScrollToTop = false
+        }
+        if (!listState.isScrollInProgress && atTop && !shouldAutoScrollToTop) {
+            shouldAutoScrollToTop = true
+        }
+    }
+
+    LaunchedEffect(shouldAutoScrollToTop, newestItemId, lazyPagingItems.itemCount) {
+        if (shouldAutoScrollToTop && newestItemId != null) {
+            listState.scrollToItem(0)
+        }
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 300.dp)
     ) {
-        items(count = lazyPagingItems.itemCount) { index ->
-            lazyPagingItems[index]?.let { entry ->
-                ToFLogItem(entry)
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp)
+        ) {
+            items(count = lazyPagingItems.itemCount, key = { index -> lazyPagingItems[index]?.id ?: index }) { index ->
+                lazyPagingItems[index]?.let { entry ->
+                    ToFLogItem(
+                        entry = entry,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(durationMillis = 220, easing = LinearOutSlowInEasing),
+                            placementSpec = null,
+                            fadeOutSpec = null
+                        )
+                    )
+                }
+            }
+
+            when (val state = lazyPagingItems.loadState.append) {
+                is LoadState.Loading -> {
+                    item {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                }
+                is LoadState.Error -> {
+                    item {
+                        Text(
+                            "Error loading logs",
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+                else -> {}
             }
         }
 
-        when (val state = lazyPagingItems.loadState.append) {
-            is LoadState.Loading -> {
-                item {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        strokeWidth = 2.dp
-                    )
-                }
+        if (!atTop) {
+            SmallFloatingActionButton(
+                onClick = {
+                    coroutineScope.launch {
+                        shouldAutoScrollToTop = true
+                        listState.animateScrollToItem(0)
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(8.dp),
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Text("▲")
             }
-            is LoadState.Error -> {
-                item {
-                    Text(
-                        "Error loading logs",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(8.dp)
-                    )
-                }
-            }
-            else -> {}
         }
     }
 }

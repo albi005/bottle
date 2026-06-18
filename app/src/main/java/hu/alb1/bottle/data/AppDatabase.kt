@@ -16,7 +16,7 @@ import androidx.room.TypeConverters
 import androidx.paging.PagingSource
 import hu.alb1.bottle.proto.CapEnumTofTriggerType
 
-@Database(entities = [User::class, TofLogEntry::class], version = 2)
+@Database(entities = [User::class, TofLogEntry::class], version = 3)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
@@ -60,7 +60,13 @@ interface UserDao {
 
 @Entity(
     tableName = "tof_log",
-    indices = [Index(value = ["timestamp"])]
+    indices = [
+        Index(value = ["timestamp"]),
+        Index(
+            value = ["timestamp", "trigger_type", "distance_mm", "kcps", "uv_led_temp_ohm"],
+            unique = true
+        )
+    ]
 )
 data class TofLogEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -73,7 +79,7 @@ data class TofLogEntry(
 
 @Dao
 interface TofLogEntryDao {
-    @Query("SELECT * FROM tof_log ORDER BY timestamp ASC")
+    @Query("SELECT * FROM tof_log ORDER BY timestamp ASC, id ASC")
     suspend fun getAll(): List<TofLogEntry>
 
     @Query("SELECT MAX(timestamp) FROM tof_log")
@@ -82,6 +88,6 @@ interface TofLogEntryDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(vararg entries: TofLogEntry)
 
-    @Query("SELECT * FROM tof_log ORDER BY timestamp DESC")
+    @Query("SELECT * FROM tof_log ORDER BY timestamp DESC, id DESC")
     fun getAllPaged(): PagingSource<Int, TofLogEntry>
 }
