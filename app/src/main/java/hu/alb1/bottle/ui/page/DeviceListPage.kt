@@ -50,7 +50,6 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import hu.alb1.bottle.BluetoothProfileState
 import hu.alb1.bottle.BottleApplication
 import hu.alb1.bottle.DeviceViewModel
-import hu.alb1.bottle.ScanningState
 import hu.alb1.bottle.data.TofLogEntry
 import hu.alb1.bottle.ui.icon.bluetooth_connected
 import kotlinx.coroutines.launch
@@ -75,15 +74,7 @@ fun DeviceListPage(modifier: Modifier = Modifier) {
 
             val scanState = app.bleScanner.scanningState.value
             Box(Modifier.fillMaxWidth().padding(32.dp)) {
-                when (scanState) {
-                    is ScanningState.Scanning -> {
-                        CircularProgressIndicator(
-                            Modifier.align(Alignment.Center)
-                        )
-                    }
-                    ScanningState.Errored -> Text("Errored")
-                    else -> {}
-                }
+                Text(scanState.toString(), Modifier.align(Alignment.Center))
             }
         }
     }
