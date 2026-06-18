@@ -15,16 +15,15 @@ import android.os.Build
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.health.connect.client.records.HydrationRecord
-import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.records.metadata.Device
 import com.squareup.wire.AnyMessage
 import hu.alb1.bottle.proto.CapBleRequest
 import hu.alb1.bottle.proto.CapBleResponse
 import hu.alb1.bottle.proto.CapEnumLogQuerySearchAlgo
 import hu.alb1.bottle.proto.CapLogQuery
-import hu.alb1.bottle.proto.CapTofLog
 import hu.alb1.bottle.proto.RequestGetCapTofLog
 import hu.alb1.bottle.proto.ResponseGetCapTofLog
 import kotlinx.coroutines.CoroutineScope
@@ -32,13 +31,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.fetchAndIncrement
@@ -55,6 +55,7 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
     var batteryLevel = mutableIntStateOf(-1)
     var batteryLevelLoading = mutableStateOf(false)
     var bluetoothConnectionState = mutableStateOf(BluetoothProfileState.DISCONNECTED)
+    var timestamp = mutableLongStateOf(0)
 
     @Synchronized
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -247,6 +248,9 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
 //                }
 
             val limit = 6
+            val app = context.applicationContext as BottleApplication
+            val dao = app.db.tofLogEntryDao()
+            timestamp.longValue = dao.getLatestTimestamp() ?: 0L
             gatt.writeCharacteristic(
                 gattWrapper.nordicUartService.rxCharacteristic.characteristic,
                 CapBleRequest(
@@ -254,7 +258,7 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                     body = AnyMessage.pack(
                         RequestGetCapTofLog(
                             CapLogQuery(
-                                fromTimestamp = 0,
+                                fromTimestamp = timestamp.longValue,
                                 limit = limit,
                                 algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP
                             )
@@ -264,9 +268,35 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                 BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
             )
 
-            var timestamp: Long = 0
             characteristicChangedChannel.receiveAsFlow()
-                .collect { characteristicChangedMessage ->
+                .takeWhile { characteristicChangedMessage ->
+                    println("TIMESTAMP: $timestamp")
+
+                    val response = CapBleResponse.ADAPTER.decode(characteristicChangedMessage.value)
+                    val tofState = response.body!!.unpack(ResponseGetCapTofLog.ADAPTER)
+
+                    val entries = tofState.items.map { capTofLog ->
+                        hu.alb1.bottle.data.TofLogEntry(
+                            timestamp = capTofLog.timestamp,
+                            triggerType = capTofLog.triggerType,
+                            distanceInMillimeter = capTofLog.distanceInMillimeter,
+                            kcps = capTofLog.kcps,
+                            uvLedTempInOhm = capTofLog.uvLedTempInOhm,
+                        )
+                    }.toTypedArray()
+                    dao.insertAll(*entries)
+
+                    androidx.health.connect.client.records.metadata.Metadata.autoRecorded(
+                        device = Device(Device.TYPE_UNKNOWN),
+                        clientRecordId = 1.toString(),
+                        clientRecordVersion = 1
+                    )
+
+                    timestamp.longValue = tofState.items.maxOf { it.timestamp }
+
+                    if (tofState.items.size < limit)
+                        return@takeWhile false
+
                     gatt.writeCharacteristic(
                         gattWrapper.nordicUartService.rxCharacteristic.characteristic,
                         CapBleRequest(
@@ -274,7 +304,7 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                             body = AnyMessage.pack(
                                 RequestGetCapTofLog(
                                     CapLogQuery(
-                                        fromTimestamp = timestamp,
+                                        fromTimestamp = timestamp.longValue,
                                         limit = limit,
                                         algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP
                                     )
@@ -284,25 +314,11 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                         BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
                     )
 
-                    val response = CapBleResponse.ADAPTER.decode(characteristicChangedMessage.value)
-                    val tofState = response.body!!.unpack(ResponseGetCapTofLog.ADAPTER)
-                    data class WithTime(val time: Instant, val capTofLog: CapTofLog)
-                    tofState.items.map { capTofLog -> WithTime(Instant.fromEpochSeconds(capTofLog.timestamp), capTofLog) }
-                        .forEach { x -> println(x) }
-
-                    val app = context.applicationContext as BottleApplication
-                    HydrationRecord(
-                        startTime = null,
-                        endTime = null,
-                        volume = null,
-                        metadata = Metadata(
-                            kind =
-                        )
-                    )
-
-                    if (tofState.items.size < limit) cancel()
-                    timestamp = tofState.items.maxOf { it.timestamp }
+                    return@takeWhile true
                 }
+                .collect()
+
+            println("DONE SYNCING")
         }
 
 //        launch {
@@ -334,6 +350,7 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                 bluetoothGattCallback,
             )
         } else {
+            @Suppress("DEPRECATION")
             bluetoothDevice.connectGatt(
                 context,
                 false,

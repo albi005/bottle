@@ -81,6 +81,9 @@ dependencies {
 
     // https://developer.android.com/health-and-fitness/health-connect/get-started
     implementation(libs.androidx.health.connect.client)
+
+    // https://github.com/Kotlin/kotlinx-datetime#gradle
+    implementation(libs.kotlinx.datetime)
 }
 
 wire {

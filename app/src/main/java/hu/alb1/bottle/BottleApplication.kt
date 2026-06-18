@@ -31,8 +31,9 @@ class BottleApplication : Application() {
         applicationScope.launch { syncService.loop() }
         db = Room.databaseBuilder(
             applicationContext,
-            AppDatabase::class.java, "bottle"
-        ).build()
+            AppDatabase::class.java, "bottle.db"
+        ).fallbackToDestructiveMigration(true)
+        .build()
         healthConnectClient = HealthConnectClient.getOrCreate(this)
     }
 }

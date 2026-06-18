@@ -35,6 +35,8 @@ import hu.alb1.bottle.BottleApplication
 import hu.alb1.bottle.DeviceViewModel
 import hu.alb1.bottle.ScanningState
 import hu.alb1.bottle.ui.icon.bluetooth_connected
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -97,6 +99,7 @@ fun DeviceCard(device: DeviceViewModel, modifier: Modifier = Modifier) {
             Text("MAC: " + device.address)
             Text("RSSI: " + device.rssi.toString())
             Text("Battery: ${device.batteryLevel.intValue}%")
+            Text("Sync timestamp: ${Instant.fromEpochSeconds(device.timestamp.longValue).toLocalDateTime(TimeZone.currentSystemDefault())}")
             if (device.batteryLevelLoading.value) {
                 CircularProgressIndicator(modifier = Modifier.width(64.dp))
             }
