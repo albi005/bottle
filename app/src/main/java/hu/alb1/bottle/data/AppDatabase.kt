@@ -13,6 +13,7 @@ import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.paging.PagingSource
 import hu.alb1.bottle.proto.CapEnumTofTriggerType
 
 @Database(entities = [User::class, TofLogEntry::class], version = 2)
@@ -80,4 +81,7 @@ interface TofLogEntryDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(vararg entries: TofLogEntry)
+
+    @Query("SELECT * FROM tof_log ORDER BY timestamp DESC")
+    fun getAllPaged(): PagingSource<Int, TofLogEntry>
 }

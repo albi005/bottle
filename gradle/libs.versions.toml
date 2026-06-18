@@ -16,6 +16,7 @@ protobufJavalite = "4.35.0"
 protobufKotlinLite = "4.35.0"
 wire = "6.4.0"
 room = "2.8.4"
+paging = "3.3.6"
 workRuntime = "2.11.2"
 
 [libraries]
@@ -39,6 +40,7 @@ androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-paging = { module = "androidx.room:room-paging", version.ref = "room" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
+androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging" }
 androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "workRuntime" }
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntime" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }

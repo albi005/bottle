@@ -78,6 +78,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     testImplementation(libs.androidx.room.testing)
     implementation(libs.androidx.room.paging)
+    implementation(libs.androidx.paging.compose)
 
     // https://developer.android.com/health-and-fitness/health-connect/get-started
     implementation(libs.androidx.health.connect.client)
