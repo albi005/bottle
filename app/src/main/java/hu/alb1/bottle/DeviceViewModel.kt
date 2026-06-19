@@ -18,6 +18,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.health.connect.client.records.HydrationRecord
+import androidx.health.connect.client.records.metadata.Device
+import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.units.Volume
 import com.squareup.wire.AnyMessage
 import hu.alb1.bottle.proto.CapBleRequest
 import hu.alb1.bottle.proto.CapBleResponse
@@ -32,7 +36,6 @@ import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -43,8 +46,10 @@ import kotlinx.coroutines.launch
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.fetchAndIncrement
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import kotlin.time.toJavaDuration
 
 class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) {
     var name by mutableStateOf("null")
@@ -269,13 +274,14 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
             )
 
             try {
-            characteristicChangedChannel.receiveAsFlow()
-                .takeWhile { characteristicChangedMessage ->
-                    println("TIMESTAMP: ${timestamp.longValue}")
+                characteristicChangedChannel.receiveAsFlow()
+                    .takeWhile { characteristicChangedMessage ->
+                        println("TIMESTAMP: ${timestamp.longValue}")
 
-                    val response = CapBleResponse.ADAPTER.decode(characteristicChangedMessage.value)
+                        val response =
+                            CapBleResponse.ADAPTER.decode(characteristicChangedMessage.value)
 
-                    if (response.body != null) {
+                        if (response.body == null) return@takeWhile false
                         val tofState = response.body.unpack(ResponseGetCapTofLog.ADAPTER)
 
                         val entries = tofState.items.map { capTofLog ->
@@ -289,50 +295,64 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                         }.toTypedArray()
                         dao.insertAll(*entries)
 
-                        if (tofState.items.any())
-                            timestamp.longValue = tofState.items.maxOf { it.timestamp }
-
                         if (tofState.items.size < limit) {
-//                        return@takeWhile false
-                            println("HOLD")
-                            delay(2000)
-                            println("SYNC")
+                            return@takeWhile false
                         }
-                    }
-                    else {
-                        println("HOLD")
-                        delay(2000)
-                        println("SYNC")
-                    }
 
+                        timestamp.longValue = tofState.items.maxOf { it.timestamp }
 
-                    gatt.writeCharacteristic(
-                        gattWrapper.nordicUartService.rxCharacteristic.characteristic,
-                        CapBleRequest(
-                            requestId = requestIdCounter.fetchAndIncrement(),
-                            body = AnyMessage.pack(
-                                RequestGetCapTofLog(
-                                    CapLogQuery(
-                                        fromTimestamp = timestamp.longValue,
-                                        limit = limit,
-                                        algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP
+                        gatt.writeCharacteristic(
+                            gattWrapper.nordicUartService.rxCharacteristic.characteristic,
+                            CapBleRequest(
+                                requestId = requestIdCounter.fetchAndIncrement(),
+                                body = AnyMessage.pack(
+                                    RequestGetCapTofLog(
+                                        CapLogQuery(
+                                            fromTimestamp = timestamp.longValue,
+                                            limit = limit,
+                                            algo = CapEnumLogQuerySearchAlgo.SEARCH_ALGO_TIMESTAMP
+                                        )
                                     )
                                 )
-                            )
-                        ).encode(),
-                        BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-                    )
+                            ).encode(),
+                            BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                        )
 
-                    return@takeWhile true
-                }
-                .collect()
+                        return@takeWhile true
+                    }
+                    .collect()
 
-            }
-            catch(ex: Exception) {
+            } catch (ex: Exception) {
                 println(ex)
             }
 
             println("DONE SYNCING")
+
+            try {
+                val allEntries = dao.getAll()
+                val sips = TofAlgorithm().processLogs(allEntries)
+                if (sips.isNotEmpty()) {
+                    val hydrationRecords = sips.mapIndexed { i, sip ->
+                        val instant = java.time.Instant.ofEpochSecond(sip.timestamp)
+                        val device = Device(type = Device.TYPE_UNKNOWN)
+                        HydrationRecord(
+                            volume = Volume.milliliters(sip.volumeMl),
+                            startTime = instant.minus(1.seconds.toJavaDuration()),
+                            startZoneOffset = null,
+                            endTime = instant,
+                            endZoneOffset = null,
+                            metadata = Metadata.autoRecorded(
+                                device,
+                                i.toString(),
+                                1L,
+                            ),
+                        )
+                    }
+                    app.healthConnectClient.insertRecords(hydrationRecords)
+                }
+            } catch (e: Exception) {
+                println("Health Connect sync failed: ${e.message}")
+            }
         }
 
 //        launch {
