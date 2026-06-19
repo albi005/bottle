@@ -18,7 +18,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.health.connect.client.records.metadata.Device
 import com.squareup.wire.AnyMessage
 import hu.alb1.bottle.proto.CapBleRequest
 import hu.alb1.bottle.proto.CapBleResponse
@@ -33,6 +32,7 @@ import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -268,34 +268,43 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                 BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
             )
 
+            try {
             characteristicChangedChannel.receiveAsFlow()
                 .takeWhile { characteristicChangedMessage ->
-                    println("TIMESTAMP: $timestamp")
+                    println("TIMESTAMP: ${timestamp.longValue}")
 
                     val response = CapBleResponse.ADAPTER.decode(characteristicChangedMessage.value)
-                    val tofState = response.body!!.unpack(ResponseGetCapTofLog.ADAPTER)
 
-                    val entries = tofState.items.map { capTofLog ->
-                        hu.alb1.bottle.data.TofLogEntry(
-                            timestamp = capTofLog.timestamp,
-                            triggerType = capTofLog.triggerType,
-                            distanceInMillimeter = capTofLog.distanceInMillimeter,
-                            kcps = capTofLog.kcps,
-                            uvLedTempInOhm = capTofLog.uvLedTempInOhm,
-                        )
-                    }.toTypedArray()
-                    dao.insertAll(*entries)
+                    if (response.body != null) {
+                        val tofState = response.body.unpack(ResponseGetCapTofLog.ADAPTER)
 
-                    androidx.health.connect.client.records.metadata.Metadata.autoRecorded(
-                        device = Device(Device.TYPE_UNKNOWN),
-                        clientRecordId = 1.toString(),
-                        clientRecordVersion = 1
-                    )
+                        val entries = tofState.items.map { capTofLog ->
+                            hu.alb1.bottle.data.TofLogEntry(
+                                timestamp = capTofLog.timestamp,
+                                triggerType = capTofLog.triggerType,
+                                distanceInMillimeter = capTofLog.distanceInMillimeter,
+                                kcps = capTofLog.kcps,
+                                uvLedTempInOhm = capTofLog.uvLedTempInOhm,
+                            )
+                        }.toTypedArray()
+                        dao.insertAll(*entries)
 
-                    timestamp.longValue = tofState.items.maxOf { it.timestamp }
+                        if (tofState.items.any())
+                            timestamp.longValue = tofState.items.maxOf { it.timestamp }
 
-                    if (tofState.items.size < limit)
-                        return@takeWhile false
+                        if (tofState.items.size < limit) {
+//                        return@takeWhile false
+                            println("HOLD")
+                            delay(2000)
+                            println("SYNC")
+                        }
+                    }
+                    else {
+                        println("HOLD")
+                        delay(2000)
+                        println("SYNC")
+                    }
+
 
                     gatt.writeCharacteristic(
                         gattWrapper.nordicUartService.rxCharacteristic.characteristic,
@@ -317,6 +326,11 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                     return@takeWhile true
                 }
                 .collect()
+
+            }
+            catch(ex: Exception) {
+                println(ex)
+            }
 
             println("DONE SYNCING")
         }

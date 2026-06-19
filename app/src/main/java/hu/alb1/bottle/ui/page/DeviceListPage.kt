@@ -53,8 +53,12 @@ import hu.alb1.bottle.DeviceViewModel
 import hu.alb1.bottle.data.TofLogEntry
 import hu.alb1.bottle.ui.icon.bluetooth_connected
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format
+import kotlinx.datetime.format.char
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.pow
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -82,7 +86,7 @@ fun DeviceListPage(modifier: Modifier = Modifier) {
 
 @Composable
 fun DeviceCard(device: DeviceViewModel, modifier: Modifier = Modifier) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(true) }
 
     Card(
         onClick = {},
@@ -125,18 +129,18 @@ fun DeviceCard(device: DeviceViewModel, modifier: Modifier = Modifier) {
             )
 
             AnimatedVisibility(visible = expanded) {
-                ToFLogList()
+                TofLogList()
             }
         }
     }
 }
 
 @Composable
-fun ToFLogList() {
+fun TofLogList() {
     val app = LocalContext.current.applicationContext as BottleApplication
     val dao = app.db.tofLogEntryDao()
     val pager = remember {
-        Pager(PagingConfig(pageSize = 20)) {
+        Pager(PagingConfig(pageSize = 50)) {
             dao.getAllPaged()
         }
     }
@@ -176,15 +180,15 @@ fun ToFLogList() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 300.dp)
+            .heightIn(max = 600.dp)
     ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp)
         ) {
             items(count = lazyPagingItems.itemCount, key = { index -> lazyPagingItems[index]?.id ?: index }) { index ->
                 lazyPagingItems[index]?.let { entry ->
-                    ToFLogItem(
+                    TofLogItem(
                         entry = entry,
                         modifier = Modifier.animateItem(
                             fadeInSpec = tween(durationMillis = 220, easing = LinearOutSlowInEasing),
@@ -238,22 +242,52 @@ fun ToFLogList() {
     }
 }
 
+val f = LocalDateTime.Format {
+    year()
+    char('.')
+    monthNumber()
+    char('.')
+    day()
+    chars(". ")
+
+    hour()
+    char(':')
+    minute()
+    char(':')
+    second()
+}
+
 @Composable
-fun ToFLogItem(entry: TofLogEntry, modifier: Modifier = Modifier) {
+fun TofLogItem(entry: TofLogEntry, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp)
     ) {
-        Text(
-            "${Instant.fromEpochSeconds(entry.timestamp).toLocalDateTime(TimeZone.currentSystemDefault())}",
-            style = MaterialTheme.typography.bodySmall
-        )
-        Text(
-            "${entry.distanceInMillimeter}mm  kcps=${entry.kcps}  temp=${entry.uvLedTempInOhm}Ω  ${entry.triggerType.name}",
-            style = MaterialTheme.typography.bodySmall
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                Instant.fromEpochSeconds(entry.timestamp).toLocalDateTime(TimeZone.currentSystemDefault()).format(f),
+                style = MaterialTheme.typography.labelSmall
+            )
+            Text(
+                "%.0f".format(tofToVolume1000ml(entry.distanceInMillimeter)) + " ml",
+                style = MaterialTheme.typography.labelSmall
+            )
+            Text(
+                "${entry.kcps} kcps",
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+//        Text(
+//            "${entry.distanceInMillimeter}mm  kcps=${entry.kcps}  temp=${entry.uvLedTempInOhm}Ω  ${entry.triggerType.name}",
+//            style = MaterialTheme.typography.bodySmall
+//        )
     }
+}
+
+fun tofToVolume1000ml(distanceMm: Int): Double {
+    val d = distanceMm.toDouble()
+    return -1.1e-6 * d.pow(4) + 5.5211e-4 * d.pow(3) - 0.08516349 * d.pow(2) - 0.2839113 * d + 1026.71212239
 }
 
 @Composable
