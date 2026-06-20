@@ -1,5 +1,6 @@
 package hu.alb1.bottle.data
 
+import androidx.paging.PagingSource
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
@@ -13,10 +14,9 @@ import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
-import androidx.paging.PagingSource
 import hu.alb1.bottle.proto.CapEnumTofTriggerType
 
-@Database(entities = [User::class, TofLogEntry::class], version = 3)
+@Database(entities = [User::class, TofLogEntry::class], version = 1)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
@@ -61,11 +61,7 @@ interface UserDao {
 @Entity(
     tableName = "tof_log",
     indices = [
-        Index(value = ["timestamp"]),
-        Index(
-            value = ["timestamp", "trigger_type", "distance_mm", "kcps", "uv_led_temp_ohm"],
-            unique = true
-        )
+        Index(value = ["timestamp"], unique = true)
     ]
 )
 data class TofLogEntry(
