@@ -19,8 +19,11 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.health.connect.client.records.HydrationRecord
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Volume
 import com.squareup.wire.AnyMessage
 import hu.alb1.bottle.proto.CapBleRequest
@@ -332,23 +335,82 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                 val allEntries = dao.getAll()
                 val sips = TofAlgorithm().processLogs(allEntries)
                 if (sips.isNotEmpty()) {
-                    val hydrationRecords = sips.mapIndexed { i, sip ->
+                    val oldestTimestamp = allEntries.minOf { it.timestamp }
+                    val oldestInstant = java.time.Instant.ofEpochSecond(oldestTimestamp)
+                    val now = java.time.Instant.now()
+
+                    val existingRecords = mutableListOf<HydrationRecord>()
+                    var pageToken: String? = null
+                    do {
+                        val response = app.healthConnectClient.readRecords(
+                            ReadRecordsRequest(
+                                recordType = HydrationRecord::class,
+                                timeRangeFilter = TimeRangeFilter.between(oldestInstant, now),
+                                dataOriginFilter = setOf(DataOrigin(context.packageName)),
+                                pageToken = pageToken,
+                            )
+                        )
+                        existingRecords.addAll(response.records)
+                        pageToken = response.pageToken
+                    } while (pageToken != null)
+
+                    val existingByClientId = existingRecords.associateBy { it.metadata.clientRecordId }
+
+                    val recordsToUpdate = mutableListOf<HydrationRecord>()
+                    val recordsToInsert = mutableListOf<HydrationRecord>()
+
+                    for (sip in sips) {
                         val instant = java.time.Instant.ofEpochSecond(sip.timestamp)
+                        val zoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(instant)
+                        val clientRecordId = sip.timestamp.toString()
                         val device = Device(type = Device.TYPE_UNKNOWN)
-                        HydrationRecord(
-                            volume = Volume.milliliters(sip.volumeMl),
-                            startTime = instant.minus(1.seconds.toJavaDuration()),
-                            startZoneOffset = null,
-                            endTime = instant,
-                            endZoneOffset = null,
-                            metadata = Metadata.autoRecorded(
-                                device,
-                                i.toString(),
-                                1L,
-                            ),
+
+                        val existing = existingByClientId[clientRecordId]
+                        if (existing != null) {
+                            if (existing.volume.inMilliliters != sip.volumeMl) {
+                                recordsToUpdate.add(
+                                    HydrationRecord(
+                                        volume = Volume.milliliters(sip.volumeMl),
+                                        startTime = instant,
+                                        startZoneOffset = zoneOffset,
+                                        endTime = instant,
+                                        endZoneOffset = zoneOffset,
+                                        metadata = existing.metadata,
+                                    )
+                                )
+                            }
+                        } else {
+                            recordsToInsert.add(
+                                HydrationRecord(
+                                    volume = Volume.milliliters(sip.volumeMl),
+                                    startTime = instant,
+                                    startZoneOffset = zoneOffset,
+                                    endTime = instant,
+                                    endZoneOffset = zoneOffset,
+                                    metadata = Metadata.autoRecorded(device, clientRecordId, 1L),
+                                )
+                            )
+                        }
+                    }
+
+                    val currentSipIds = sips.map { it.timestamp.toString() }.toSet()
+                    val orphanedIds = existingRecords
+                        .filter { it.metadata.clientRecordId !in currentSipIds }
+                        .map { it.metadata.id }
+
+                    if (orphanedIds.isNotEmpty()) {
+                        app.healthConnectClient.deleteRecords(
+                            HydrationRecord::class,
+                            recordIdsList = orphanedIds,
+                            clientRecordIdsList = emptyList(),
                         )
                     }
-                    app.healthConnectClient.insertRecords(hydrationRecords)
+                    if (recordsToUpdate.isNotEmpty()) {
+                        app.healthConnectClient.updateRecords(recordsToUpdate)
+                    }
+                    if (recordsToInsert.isNotEmpty()) {
+                        app.healthConnectClient.insertRecords(recordsToInsert)
+                    }
                 }
             } catch (e: Exception) {
                 println("Health Connect sync failed: ${e.message}")
