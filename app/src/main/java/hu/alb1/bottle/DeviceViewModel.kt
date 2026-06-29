@@ -24,7 +24,7 @@ import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
-import androidx.health.connect.client.units.Volume
+import androidx.health.connect.client.units.milliliters
 import com.squareup.wire.AnyMessage
 import hu.alb1.bottle.proto.CapBleRequest
 import hu.alb1.bottle.proto.CapBleResponse
@@ -49,10 +49,8 @@ import kotlinx.coroutines.launch
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.fetchAndIncrement
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
-import kotlin.time.toJavaDuration
 
 class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) {
     var name by mutableStateOf("null")
@@ -361,7 +359,6 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
 
                     for (sip in sips) {
                         val instant = java.time.Instant.ofEpochSecond(sip.timestamp)
-                        val zoneOffset = java.time.ZoneOffset.systemDefault().rules.getOffset(instant)
                         val clientRecordId = sip.timestamp.toString()
                         val device = Device(type = Device.TYPE_UNKNOWN)
 
@@ -370,11 +367,11 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                             if (existing.volume.inMilliliters != sip.volumeMl) {
                                 recordsToUpdate.add(
                                     HydrationRecord(
-                                        volume = Volume.milliliters(sip.volumeMl),
+                                        volume = sip.volumeMl.milliliters,
                                         startTime = instant,
-                                        startZoneOffset = zoneOffset,
-                                        endTime = instant,
-                                        endZoneOffset = zoneOffset,
+                                        startZoneOffset = null,
+                                        endTime = instant.plusSeconds(60),
+                                        endZoneOffset = null,
                                         metadata = existing.metadata,
                                     )
                                 )
@@ -382,11 +379,11 @@ class DeviceViewModel(val coroutineScope: CoroutineScope, val context: Context) 
                         } else {
                             recordsToInsert.add(
                                 HydrationRecord(
-                                    volume = Volume.milliliters(sip.volumeMl),
+                                    volume = sip.volumeMl.milliliters,
                                     startTime = instant,
-                                    startZoneOffset = zoneOffset,
-                                    endTime = instant,
-                                    endZoneOffset = zoneOffset,
+                                    startZoneOffset = null,
+                                    endTime = instant.plusSeconds(60),
+                                    endZoneOffset = null,
                                     metadata = Metadata.autoRecorded(device, clientRecordId, 1L),
                                 )
                             )
