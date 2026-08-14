@@ -1,0 +1,10 @@
+syntax = "proto3";
+import "cap_ble.proto";
+
+option java_package = "hu.alb1.bottle.proto";
+
+message CapProfileUvConfig {
+   CapUvConfig saving = 1;
+   CapUvConfig normal = 2;
+   CapUvConfig max = 3;
+}
